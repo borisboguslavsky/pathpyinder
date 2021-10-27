@@ -1,0 +1,15 @@
+PySimpleGUI Documentation:
+https://pysimplegui.readthedocs.io/en/latest/
+
+Notable Demos
+Demo_Sort_Visualizer.py
+	Implementation of items being sorted visually with adjustable speed slider
+	
+Demo_menus.py
+	Has top menu bar implementation
+
+Demo_Radio_Buttons_Simulated.py
+	Has toggle-able buttons, and radio button implementation
+
+Demo_Table_Element_Header_or_Cell_Clicks.py
+	Has click-able table
