@@ -1,0 +1,3 @@
+[MESSAGES CONTROL]
+disable=pointless-string-statement
+disable=trailing-whitespace

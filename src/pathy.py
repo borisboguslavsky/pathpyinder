@@ -1,5 +1,7 @@
 import PySimpleGUI as sg
-#from maze_node import Node
+# from set_node import *
+# from bfs import bfs
+from test_maze import test_maze
 
 
 
@@ -16,29 +18,33 @@ import PySimpleGUI as sg
 """
 
 NODES = {}          # Node grid in a dictionary with (x,y) tuples as keys
-START_NODE = None
-END_NODE = None
+START_NODE = None   # Will be an instance of Node
+END_NODE = None     # Will be an instance of Node
 
 ALGO = 'bfs'        # pathing algorithm to use
 MODE = 'draw'       # maze draw mode -> can be set to 'draw', 'erase', 'start', or 'end'
 
 colors = {
-    'empty': '#cccccc',
-    'wall': '#003333',
-    'start': '#00cc00',
-    'end': '#ff3366'
+    'empty': '#cccccc',     # grey
+    'wall': '#003333',      # black
+    'start': '#00cc00',     # green
+    'end': '#ff3366',       # orange/red
+    
+    'active': '#0099ff',    # blue
+    'visited': '#999966',   # olive
+    'solution': '#009900'   # dark green
 }
 
 
 
 """
-##     ## ######## ##       ########  ######## ########   ######
-##     ## ##       ##       ##     ## ##       ##     ## ##    ##
-##     ## ##       ##       ##     ## ##       ##     ## ##
-######### ######   ##       ########  ######   ########   ######
-##     ## ##       ##       ##        ##       ##   ##         ##
-##     ## ##       ##       ##        ##       ##    ##  ##    ##
-##     ## ######## ######## ##        ######## ##     ##  ######
+##     ## ####       ##     ## ######## ##       ########  ######## ########   ######
+##     ##  ##        ##     ## ##       ##       ##     ## ##       ##     ## ##    ##
+##     ##  ##        ##     ## ##       ##       ##     ## ##       ##     ## ##
+##     ##  ##        ######### ######   ##       ########  ######   ########   ######
+##     ##  ##        ##     ## ##       ##       ##        ##       ##   ##         ##
+##     ##  ##        ##     ## ##       ##       ##        ##       ##    ##  ##    ##
+ #######  ####       ##     ## ######## ######## ##        ######## ##     ##  ######
 """
 def set_algo(new_algo:str) -> None:
     """Establishes which algorithm to use for the pathfinder. 
@@ -67,18 +73,101 @@ def set_draw_mode(draw_mode:str) -> None:
     print(f"Draw mode changed to {draw_mode}")    
 
 
+"""
+########  ########  ######
+##     ## ##       ##    ##
+##     ## ##       ##
+########  ######    ######
+##     ## ##             ##
+##     ## ##       ##    ##
+########  ##        ######
+"""
+def bfs(nodes, start_node, end_node):
+    
+    # create a stack to be worked through in a first-in, first-out manner
+    stack = []
+    # add the starting node to the stack
+    stack.append(start_node)
+    
+    # as long as the stack has a node
+    while stack:
+        # set the top node as the currently active node
+        current_node = stack.pop()
+        loc = (current_node.x, current_node.y)
+        # flag the current node as active
+        set_active_node(loc)
+        # check if it's the end node
+        if current_node.is_end_node:
+            break   
+        # for all neighbor nodes
+        for neighbor in current_node.get_neighbors():
+            # nodes cannot be a wall, must not have already been visited, and must be in-bounds
+            if not nodes[neighbor].is_wall and not nodes[neighbor].is_visited:
+                # mark them as visited
+                set_visited_node(nodes[neighbor].loc)
+                nodes[neighbor].parent = current_node
+                stack.append(nodes[neighbor])
+                window['maze'].update()
+    
+    # traverse backwards through parent nodes and mark the solution
+    while current_node.parent is not None:
+        if current_node.is_start_node == True:
+            break
+        set_solution_node(current_node.loc)
+        current_node = current_node.parent
+        
+
+
+
+
+"""
+ ######  ######## ########    ##    ##  #######  ########  ########
+##    ## ##          ##       ###   ## ##     ## ##     ## ##
+##       ##          ##       ####  ## ##     ## ##     ## ##
+ ######  ######      ##       ## ## ## ##     ## ##     ## ######
+      ## ##          ##       ##  #### ##     ## ##     ## ##
+##    ## ##          ##       ##   ### ##     ## ##     ## ##
+ ######  ########    ##       ##    ##  #######  ########  ########
+"""
+def set_state(state, node_location):
+    """Sets the boolean state flags of a node according to a passed argument.
+    Valid states are: `is_empty`, `is_wall`, `is_visited`, `is_start_node`, `is_end_node`"""
+    if state == 'is_empty':
+        NODES[node_location].is_empty = True
+        NODES[node_location].is_wall = False
+    elif state == 'is_wall':
+        NODES[node_location].is_empty = False
+        NODES[node_location].is_wall = True
+        NODES[node_location].is_visited = False
+        NODES[node_location].is_start_node = False
+        NODES[node_location].is_end_node = False
+    elif state == 'is_visited':
+        NODES[node_location].is_visited = True
+    elif state == 'is_active':
+        NODES[node_location].is_active = True
+    elif state == 'is_start_node':
+        NODES[node_location].is_empty = True
+        NODES[node_location].is_wall = False
+        NODES[node_location].is_start_node = True
+        NODES[node_location].is_end_node = False
+    elif state == 'is_end_node':
+        NODES[node_location].is_empty = True
+        NODES[node_location].is_wall = False
+        NODES[node_location].is_start_node = False
+        NODES[node_location].is_end_node = True
+    
+    
 def set_start_node(location: tuple) -> None:
     """Set the start node"""
-    global NODES
     global START_NODE
     # if there's already a start node, reset it to basic node status
     if START_NODE is not None:
         NODES[(START_NODE.x, START_NODE.y)].color(colors['empty'])
-        NODES[(START_NODE.x, START_NODE.y)].status = None
+        NODES[(START_NODE.x, START_NODE.y)].is_start_node = False
     # establish the new start node
     START_NODE = NODES[location]
     NODES[location].color(colors['start'])
-    NODES[location].status = 'start'
+    set_state('is_start_node', location)
     
     
 def set_end_node(location: tuple) -> None:
@@ -88,18 +177,77 @@ def set_end_node(location: tuple) -> None:
     # if there's already a end node, reset it to basic node status
     if END_NODE is not None:
         NODES[(END_NODE.x, END_NODE.y)].color(colors['empty'])
-        NODES[(END_NODE.x, END_NODE.y)].status = None
-    # establish the new start node
+        NODES[(END_NODE.x, END_NODE.y)].is_end_node = False
+    # establish the new end node
     END_NODE = NODES[location]
     NODES[location].color(colors['end'])
-    NODES[location].status = 'end'
+    set_state('is_end_node', location)
     
+
+def set_wall_node(location: tuple) -> None:
+    """Sets a wall node."""
+    NODES[location].color(colors['wall'])
+    set_state('is_wall', location)
+    
+
+def set_empty_node(location: tuple) -> None:
+    """Sets an empty node."""
+    NODES[location].color(colors['empty'])
+    set_state('is_empty', location)
+    
+    
+def set_visited_node(location: tuple) -> None:
+    """Flags a node as visited."""
+    NODES[location].color(colors['visited'])
+    set_state('is_visited', location)
+    
+
+def set_active_node(location: tuple) -> None:
+    """Flags a node as active."""
+    NODES[location].color(colors['active'])
+    NODES[location].status = 'active'
+
+
+def set_solution_node(location: tuple) -> None:
+    """Flags a node as part of the solution path."""
+    NODES[location].color(colors['solution'])
+
 
 def clear():
     """Resets the grid to its initial state"""
     for node in NODES.values():
         node.color(colors['empty'])
-        node.status = None
+        node.is_empty = True
+        node.is_wall = False
+        node.is_visited = False
+        node.is_start_node = False
+        node.is_end_node = False
+        
+        
+def load_maze(maze_to_load):
+    """Loads a maze from a list. List should be 50 sub-lists, with 50 integers in each sub-list.
+    Integers can range from 0-3, representing node status' of None, 'wall', 'start', and 'end'"""
+    x = 0
+    y = 0
+    for row in maze_to_load:
+        for col in row:
+            if col == 0:
+                set_empty_node((x, y))
+            elif col == 1:
+                set_wall_node((x, y))
+            elif col == 2:
+                set_start_node((x, y))
+            elif col == 3:
+                set_end_node((x, y))
+            else:
+                set_empty_node((x, y))
+            # reset the x coordinate after rows are finished
+            if x < 49:
+                x += 1
+            else: 
+                x = 0
+        y += 1
+                
     
 """
 ##     ## ####
@@ -111,6 +259,8 @@ def clear():
  #######  ####
 """
 sg.theme('SystemDefaultForReal')
+
+menu = [['File', ['Open Maze', 'Save Maze', 'Exit']]]
 
 layout_algo_radios = [
     [sg.Radio(group_id='algo', key='radio_algo_bfs', enable_events=True, text='Breadth First Search', default=True)],
@@ -134,6 +284,7 @@ layout_controls = [
     [sg.Text('Speed:'), sg.Slider(range=(0,5), key='controls_speed_slider', orientation='h', size=(10, 20), expand_x=True, enable_events=True)]
 ]
 layout = [
+    [sg.Menu(menu, background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
     [sg.Graph(key="maze", # Might want to use a table instead
               canvas_size=(500, 500),
               graph_bottom_left=(0,500),
@@ -175,7 +326,17 @@ class Node(object):
         self.maze = maze        # reference to the window graph object
         self.x = location[0]    # x coordinate    
         self.y = location[1]    # y coordinate
-        self.status = None      # type of node: None, 'wall', 'start', 'end'
+        self.loc = location     # tuple of (x,y)
+        
+        # Status properties
+        self.is_empty = True
+        self.is_wall = False
+        self.is_start_node = False
+        self.is_end_node = False
+        self.is_visited = False
+        self.is_active = False
+        
+        self.parent = None      # parent node for backtracking and highlighting maze solution
         
         # Draw the node on the graph and store it in the id
         self.id = maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
@@ -204,16 +365,42 @@ class Node(object):
                                       line_color='#fff',
                                       line_width=1)
         print(f'Node {self.x}, {self.y} color updated to {color}.')
+        
+    def get_neighbors(self):
+        """Returns a list of coordinates for in-bound, accessible neighbor nodes. 
+        Neighbor nodes are nodes that are above, below, left, or right of the current node."""
+        neighbors = []  
+        if self.y != 0:
+            neighbors.append((self.x, self.y-1)) # top
+        if self.x != 49:
+            neighbors.append((self.x+1, self.y)) # right
+        if self.y != 49:
+            neighbors.append((self.x, self.y+1)) # bottom
+        if self.x != 0:
+            neighbors.append((self.x-1, self.y)) # left
+        return neighbors
+            
 
 
 
 
 
-
-
+"""
+ ######  ########  ########    ###    ######## ########    ##     ##    ###    ######## ########
+##    ## ##     ## ##         ## ##      ##    ##          ###   ###   ## ##        ##  ##
+##       ##     ## ##        ##   ##     ##    ##          #### ####  ##   ##      ##   ##
+##       ########  ######   ##     ##    ##    ######      ## ### ## ##     ##    ##    ######
+##       ##   ##   ##       #########    ##    ##          ##     ## #########   ##     ##
+##    ## ##    ##  ##       ##     ##    ##    ##          ##     ## ##     ##  ##      ##
+ ######  ##     ## ######## ##     ##    ##    ########    ##     ## ##     ## ######## ########
+"""
+# Create an empty node grid
 for x in range(50):
     for y in range(50):
         make_rectangle = Node(window['maze'], (x,y))
+        
+# Load test maze
+load_maze(test_maze)
 
 
 
@@ -239,11 +426,9 @@ while True:
         if loc not in NODES:
             pass
         elif MODE == 'draw':
-            NODES[loc].color(colors['wall'])
-            NODES[loc].status = 'wall'
+            set_wall_node(loc)
         elif MODE == 'erase':
-            NODES[loc].color(colors['empty'])
-            NODES[loc].status = None
+            set_empty_node(loc)
         elif MODE == 'start':
             set_start_node(loc)
         elif MODE == 'end':
@@ -269,7 +454,10 @@ while True:
     elif event == 'maze_tools_clear':
         clear()
     elif event == 'controls_start':
-        print('Start button clicked.')
+        print('*'*40 + '\nStart button clicked.\n' + '*'*40)
+        # Run algorithm
+        if ALGO == 'bfs':
+            bfs(NODES, START_NODE, END_NODE)
     elif event == 'controls_pause':
         print('Pause button clicked.')
     elif event == 'controls_play':
