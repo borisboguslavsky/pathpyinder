@@ -1,4 +1,6 @@
 import PySimpleGUI as sg
+import time
+import collections
 # from set_node import *
 # from bfs import bfs
 from test_maze import test_maze
@@ -23,6 +25,9 @@ END_NODE = None     # Will be an instance of Node
 
 ALGO = 'bfs'        # pathing algorithm to use
 MODE = 'draw'       # maze draw mode -> can be set to 'draw', 'erase', 'start', or 'end'
+DELAY = 0           # millisecond delay for algo animation
+
+SOLVED = False      # Flag for wwwhether the maze has been solved
 
 colors = {
     'empty': '#cccccc',     # grey
@@ -30,8 +35,8 @@ colors = {
     'start': '#00cc00',     # green
     'end': '#ff3366',       # orange/red
     
-    'active': '#0099ff',    # blue
-    'visited': '#999966',   # olive
+    'active': '#999966',    # olive
+    'visited': '#0099ff',   # blue
     'solution': '#009900'   # dark green
 }
 
@@ -70,8 +75,36 @@ def set_draw_mode(draw_mode:str) -> None:
     window['maze_tools_start'].update(button_color=('#000', '#f0f0f0'))
     window['maze_tools_end'].update(button_color=('#000', '#f0f0f0'))
     window['maze_tools_'+draw_mode].update(button_color='white on green')
-    print(f"Draw mode changed to {draw_mode}")    
+    print(f"Draw mode changed to {draw_mode}")
+    
 
+def reset() -> None:
+    """Clears the solution from the maze and resets all nodes `is_visited`, and `is_active` statuses."""
+    for node in NODES:
+        NODES[node].reset_node()
+    START_NODE.color(colors['start'])
+    END_NODE.color(colors['end'])
+    
+    
+def set_speed(speed: float) -> None:
+    """Sets a delay (in seconds) between each algorithm iteration"""
+    global DELAY
+    speed = int(speed)
+    if speed == 1:
+        DELAY = 0.25
+    elif speed == 2:
+        DELAY = 0.1
+    elif speed == 3:
+        DELAY = 0.05
+    elif speed == 4:
+        DELAY = 0.01
+    elif speed == 5:
+        DELAY = 0.0
+
+
+def wait(t) -> None:
+    """Waits for t seconds."""
+    time.sleep(t)
 
 """
 ########  ########  ######
@@ -85,12 +118,14 @@ def set_draw_mode(draw_mode:str) -> None:
 def bfs(nodes, start_node, end_node):
     
     # create a stack to be worked through in a first-in, first-out manner
-    stack = []
+    stack = collections.deque([])
     # add the starting node to the stack
     stack.append(start_node)
     
     # as long as the stack has a node
     while stack:
+        # delay
+        wait(DELAY)
         # set the top node as the currently active node
         current_node = stack.pop()
         loc = (current_node.x, current_node.y)
@@ -98,16 +133,17 @@ def bfs(nodes, start_node, end_node):
         set_active_node(loc)
         # check if it's the end node
         if current_node.is_end_node:
-            break   
+            break
         # for all neighbor nodes
         for neighbor in current_node.get_neighbors():
-            # nodes cannot be a wall, must not have already been visited, and must be in-bounds
+            # as long as they're not walls, or have been visited
             if not nodes[neighbor].is_wall and not nodes[neighbor].is_visited:
                 # mark them as visited
                 set_visited_node(nodes[neighbor].loc)
                 nodes[neighbor].parent = current_node
-                stack.append(nodes[neighbor])
-                window['maze'].update()
+                stack.appendleft(nodes[neighbor])
+                # refreseh the window
+                window.refresh()
     
     # traverse backwards through parent nodes and mark the solution
     while current_node.parent is not None:
@@ -205,7 +241,7 @@ def set_visited_node(location: tuple) -> None:
 def set_active_node(location: tuple) -> None:
     """Flags a node as active."""
     NODES[location].color(colors['active'])
-    NODES[location].status = 'active'
+    set_state('is_active', location)
 
 
 def set_solution_node(location: tuple) -> None:
@@ -220,6 +256,7 @@ def clear():
         node.is_empty = True
         node.is_wall = False
         node.is_visited = False
+        node.is_active = False
         node.is_start_node = False
         node.is_end_node = False
         
@@ -271,17 +308,17 @@ layout_algo_radios = [
 layout_maze_tools = [
     [sg.Button('Draw', key='maze_tools_draw', expand_x=True), sg.Button('Erase', key='maze_tools_erase', expand_x=True)],
     [sg.Button('Start', key='maze_tools_start', expand_x=True), sg.Button('End', key='maze_tools_end', expand_x=True)],
-    [sg.Button('Clear', key='maze_tools_clear', expand_x=True)]
+    [sg.Button('Clear', key='maze_tools_clear', expand_x=True), sg.Button('Reset', key='maze_tools_reset', expand_x=True)]
 ]
 layout_controls = [                             
     [
-        sg.Button('Start', key='controls_start', expand_x=True),    # Start
+        sg.Button('Solve', key='controls_solve', expand_x=True),    # Start
         sg.Button('\u23f8', key='controls_pause', expand_x=True),   # Pause
         sg.Button('\u25b6', key='controls_play', expand_x=True),    # Play
         sg.Button('\u23f9', key='controls_stop', expand_x=True)     # Stop
     ],
     [sg.HorizontalSeparator(pad=(5,15))],
-    [sg.Text('Speed:'), sg.Slider(range=(0,5), key='controls_speed_slider', orientation='h', size=(10, 20), expand_x=True, enable_events=True)]
+    [sg.Text('Speed:'), sg.Slider(range=(0,5), default_value=5, key='controls_speed_slider', orientation='h', size=(10, 20), expand_x=True, enable_events=True)]
 ]
 layout = [
     [sg.Menu(menu, background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
@@ -379,6 +416,18 @@ class Node(object):
         if self.x != 0:
             neighbors.append((self.x-1, self.y)) # left
         return neighbors
+    
+    def reset_node(self):
+        """Resets a node (removes visited, and active flags, and returns original color.)"""
+        # reset flags
+        self.is_visited = False
+        self.is_active = False
+        # reset colors
+        if self.is_wall:
+            self.color(colors['wall'], self.maze)
+        elif self.is_empty:
+            self.color(colors['empty'], self.maze)
+        
             
 
 
@@ -448,16 +497,22 @@ while True:
     elif event == 'maze_tools_erase':
         set_draw_mode('erase')
     elif event == 'maze_tools_start':
-        set_draw_mode('start')
+        set_draw_mode('solve')
     elif event == 'maze_tools_end':
         set_draw_mode('end')
     elif event == 'maze_tools_clear':
         clear()
-    elif event == 'controls_start':
-        print('*'*40 + '\nStart button clicked.\n' + '*'*40)
-        # Run algorithm
-        if ALGO == 'bfs':
-            bfs(NODES, START_NODE, END_NODE)
+    elif event == 'maze_tools_reset':
+        reset()
+    elif event == 'controls_solve':
+        # Check to make sure there's a start and end
+        if START_NODE and END_NODE:
+            print('*'*40 + '\nStart button clicked.\n' + '*'*40)
+            # Run algorithm
+            if ALGO == 'bfs':
+                bfs(NODES, START_NODE, END_NODE)
+        else:
+            print("Needs a start and and end node for a solvable maze.")
     elif event == 'controls_pause':
         print('Pause button clicked.')
     elif event == 'controls_play':
@@ -465,7 +520,8 @@ while True:
     elif event == 'controls_stop':
         print('Stop button clicked.')
     elif event == 'controls_speed_slider':
-        print('Speed slider modified.')
+        set_speed(values['controls_speed_slider'])
+        print(f'Delay set to {DELAY} ms.')
     
     print(event, type(event))
     print(values)
