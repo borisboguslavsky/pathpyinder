@@ -1,3 +1,4 @@
+from tkinter.constants import END
 import PySimpleGUI as sg
 import time
 import collections
@@ -18,6 +19,7 @@ from test_maze import test_maze
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
+VERSION = '0.0.4'
 
 NODES = {}          # Node grid in a dictionary with (x,y) tuples as keys
 START_NODE = None   # Will be an instance of Node
@@ -27,7 +29,7 @@ ALGO = 'bfs'        # pathing algorithm to use
 MODE = 'draw'       # maze draw mode -> can be set to 'draw', 'erase', 'start', or 'end'
 DELAY = 0           # millisecond delay for algo animation
 
-SOLVED = False      # Flag for wwwhether the maze has been solved
+SOLVED = False      # Flag for whether the maze has been solved
 
 colors = {
     'empty': '#cccccc',     # grey
@@ -80,10 +82,29 @@ def set_draw_mode(draw_mode:str) -> None:
 
 def reset() -> None:
     """Clears the solution from the maze and resets all nodes `is_visited`, and `is_active` statuses."""
-    for node in NODES:
-        NODES[node].reset_node()
-    START_NODE.color(colors['start'])
-    END_NODE.color(colors['end'])
+    for loc in NODES:
+        node = NODES[loc]
+        node.reset_node()
+    if START_NODE:
+        START_NODE.color(colors['start'], border_color=colors['start'], border_width=2)
+    if END_NODE:
+        END_NODE.color(colors['end'], border_color=colors['end'], border_width=2)
+    
+
+def clear():
+    """Resets the grid to its initial state"""
+    global START_NODE
+    global END_NODE
+    START_NODE = None
+    END_NODE = None
+    for node in NODES.values():
+        node.color(colors['empty'])
+        node.is_empty = True
+        node.is_wall = False
+        node.is_visited = False
+        node.is_active = False
+        node.is_start_node = False
+        node.is_end_node = False
     
     
 def set_speed(speed: float) -> None:
@@ -105,6 +126,20 @@ def set_speed(speed: float) -> None:
 def wait(t) -> None:
     """Waits for t seconds."""
     time.sleep(t)
+    
+    
+def enable_drawing_tools():
+    window['maze_tools_draw'].update(disabled=False)
+    window['maze_tools_erase'].update(disabled=False)
+    window['maze_tools_start'].update(disabled=False)
+    window['maze_tools_end'].update(disabled=False)
+    
+    
+def disable_drawing_tools():
+    window['maze_tools_draw'].update(disabled=True, button_color=('#000', '#f0f0f0'))
+    window['maze_tools_erase'].update(disabled=True, button_color=('#000', '#f0f0f0'))
+    window['maze_tools_start'].update(disabled=True, button_color=('#000', '#f0f0f0'))
+    window['maze_tools_end'].update(disabled=True, button_color=('#000', '#f0f0f0'))
 
 """
 ########  ########  ######
@@ -165,32 +200,37 @@ def bfs(nodes, start_node, end_node):
 ##    ## ##          ##       ##   ### ##     ## ##     ## ##
  ######  ########    ##       ##    ##  #######  ########  ########
 """
-def set_state(state, node_location):
+def set_state(new_state, node_location):
     """Sets the boolean state flags of a node according to a passed argument.
     Valid states are: `is_empty`, `is_wall`, `is_visited`, `is_start_node`, `is_end_node`"""
-    if state == 'is_empty':
-        NODES[node_location].is_empty = True
-        NODES[node_location].is_wall = False
-    elif state == 'is_wall':
-        NODES[node_location].is_empty = False
-        NODES[node_location].is_wall = True
-        NODES[node_location].is_visited = False
-        NODES[node_location].is_start_node = False
-        NODES[node_location].is_end_node = False
-    elif state == 'is_visited':
-        NODES[node_location].is_visited = True
-    elif state == 'is_active':
-        NODES[node_location].is_active = True
-    elif state == 'is_start_node':
-        NODES[node_location].is_empty = True
-        NODES[node_location].is_wall = False
-        NODES[node_location].is_start_node = True
-        NODES[node_location].is_end_node = False
-    elif state == 'is_end_node':
-        NODES[node_location].is_empty = True
-        NODES[node_location].is_wall = False
-        NODES[node_location].is_start_node = False
-        NODES[node_location].is_end_node = True
+    
+    node = NODES[node_location]
+    
+    if new_state == 'is_empty':
+        node.is_empty = True
+        node.is_wall = False
+        node.is_start_node = False
+        node.is_end_node = False
+    elif new_state == 'is_wall':
+        node.is_empty = False
+        node.is_wall = True
+        node.is_visited = False
+        node.is_start_node = False
+        node.is_end_node = False
+    elif new_state == 'is_visited':
+        node.is_visited = True
+    elif new_state == 'is_active':
+        node.is_active = True
+    elif new_state == 'is_start_node':
+        node.is_empty = True
+        node.is_wall = False
+        node.is_start_node = True
+        node.is_end_node = False
+    elif new_state == 'is_end_node':
+        node.is_empty = True
+        node.is_wall = False
+        node.is_start_node = False
+        node.is_end_node = True
     
     
 def set_start_node(location: tuple) -> None:
@@ -202,7 +242,7 @@ def set_start_node(location: tuple) -> None:
         NODES[(START_NODE.x, START_NODE.y)].is_start_node = False
     # establish the new start node
     START_NODE = NODES[location]
-    NODES[location].color(colors['start'])
+    NODES[location].color(colors['start'], border_color=colors['start'], border_width=2)
     set_state('is_start_node', location)
     
     
@@ -216,13 +256,14 @@ def set_end_node(location: tuple) -> None:
         NODES[(END_NODE.x, END_NODE.y)].is_end_node = False
     # establish the new end node
     END_NODE = NODES[location]
-    NODES[location].color(colors['end'])
+    NODES[location].color(colors['end'], border_color=colors['end'], border_width=2)
     set_state('is_end_node', location)
     
 
 def set_wall_node(location: tuple) -> None:
     """Sets a wall node."""
-    NODES[location].color(colors['wall'])
+    NODES[location].color(color=colors['wall'], border_color=colors['wall'])
+    window['maze'].send_figure_to_back(NODES[location].id)
     set_state('is_wall', location)
     
 
@@ -248,43 +289,98 @@ def set_solution_node(location: tuple) -> None:
     """Flags a node as part of the solution path."""
     NODES[location].color(colors['solution'])
 
-
-def clear():
-    """Resets the grid to its initial state"""
-    for node in NODES.values():
-        node.color(colors['empty'])
-        node.is_empty = True
-        node.is_wall = False
-        node.is_visited = False
-        node.is_active = False
-        node.is_start_node = False
-        node.is_end_node = False
         
-        
-def load_maze(maze_to_load):
-    """Loads a maze from a list. List should be 50 sub-lists, with 50 integers in each sub-list.
-    Integers can range from 0-3, representing node status' of None, 'wall', 'start', and 'end'"""
-    x = 0
-    y = 0
-    for row in maze_to_load:
-        for col in row:
-            if col == 0:
-                set_empty_node((x, y))
-            elif col == 1:
-                set_wall_node((x, y))
-            elif col == 2:
-                set_start_node((x, y))
-            elif col == 3:
-                set_end_node((x, y))
-            else:
-                set_empty_node((x, y))
-            # reset the x coordinate after rows are finished
-            if x < 49:
-                x += 1
-            else: 
-                x = 0
-        y += 1
+"""
+ #######  ########  ######## ##    ##    ##     ##    ###    ######## ########
+##     ## ##     ## ##       ###   ##    ###   ###   ## ##        ##  ##
+##     ## ##     ## ##       ####  ##    #### ####  ##   ##      ##   ##
+##     ## ########  ######   ## ## ##    ## ### ## ##     ##    ##    ######
+##     ## ##        ##       ##  ####    ##     ## #########   ##     ##
+##     ## ##        ##       ##   ###    ##     ## ##     ##  ##      ##
+ #######  ##        ######## ##    ##    ##     ## ##     ## ######## ########
+"""
+def open_maze_file(filename: str) -> bool:
+    """Loads a maze from a txt file. File should be formatted as a list of length 50, containing sublists of length 50 each. 
+    Each sub-list would contain 50 integers, with each integer ranging from 0-3.
+    Integer values represent nodes that are: 'empty', 'walls', 'start nodes', and 'end nodes', respectively."""
+    
+    # TODO: parse maze file and make sure it's valid
+    def valid_maze_file(filename: str):
+        if filename:
+            return True
+        else:
+            return False
+    
+    if valid_maze_file(filename):
+        print(f'Maze file to open: {filename}')
+        parsed_maze = []
+        with open(f'{filename}') as new_maze:
+            for line in new_maze.readlines():
+                parsed_maze.append([int(x) for x in line.split(' ')])
                 
+        x = 0
+        y = 0
+        for row in parsed_maze:
+            for col in row:
+                if col == 0:
+                    set_empty_node((x, y))
+                elif col == 1:
+                    set_wall_node((x, y))
+                elif col == 2:
+                    set_start_node((x, y))
+                elif col == 3:
+                    set_end_node((x, y))
+                    
+                # reset the x coordinate after rows are finished
+                if x < 49:
+                    x += 1
+                else: 
+                    x = 0
+            y += 1
+            
+"""
+ ######     ###    ##     ## ########    ##     ##    ###    ######## ########
+##    ##   ## ##   ##     ## ##          ###   ###   ## ##        ##  ##
+##        ##   ##  ##     ## ##          #### ####  ##   ##      ##   ##
+ ######  ##     ## ##     ## ######      ## ### ## ##     ##    ##    ######
+      ## #########  ##   ##  ##          ##     ## #########   ##     ##
+##    ## ##     ##   ## ##   ##          ##     ## ##     ##  ##      ##
+ ######  ##     ##    ###    ########    ##     ## ##     ## ######## ########
+"""
+def save_maze_file(filename: str) -> bool:
+    if not filename:
+        return False
+    
+    """Saves the maze to a file."""
+    # list that stores the maze
+    maze_to_write = []
+    for col in range(0, 50):
+        row_list = []
+        for row in range(0, 50):
+            if NODES[(row, col)].is_start_node:
+                row_list.append('2 ')
+            elif NODES[(row, col)].is_end_node:
+                row_list.append('3 ')
+            elif NODES[(row, col)].is_empty:
+                row_list.append('0 ')
+            elif NODES[(row, col)].is_wall:
+                row_list.append('1 ')
+        maze_to_write.append(row_list)
+    
+    # remove trailing space from the last node in each row
+    for row in maze_to_write:
+        row[49] = row[49][0]
+        
+            
+    with open(f'{filename.name}', 'w') as file_to_write:
+        for row in range(0, 50):
+            file_to_write.writelines(maze_to_write[row])
+            # write a new line at the end of each row, but not at the end of the last line
+            if row != 49:
+                file_to_write.write('\n')
+            
+    print(filename)
+    
     
 """
 ##     ## ####
@@ -297,7 +393,8 @@ def load_maze(maze_to_load):
 """
 sg.theme('SystemDefaultForReal')
 
-menu = [['File', ['Open Maze', 'Save Maze', 'Exit']]]
+menu = [['File', ['Open Maze', 'Save Maze', 'Exit']], 
+        ['Version', ['Program Info']],]
 
 layout_algo_radios = [
     [sg.Radio(group_id='algo', key='radio_algo_bfs', enable_events=True, text='Breadth First Search', default=True)],
@@ -332,13 +429,13 @@ layout = [
     ],
     [
         sg.Frame('Algorithm', layout_algo_radios, expand_y=True, expand_x=True),
-        sg.Frame('Maze', layout_maze_tools, expand_y=True, expand_x=True),
+        sg.Frame('Maze Tools', layout_maze_tools, expand_y=True, expand_x=True),
         sg.Frame('Controls', layout_controls, expand_y=True, expand_x=True)
     ]
 ]
 
 # Create the Window
-window = sg.Window('Pathy 0.0.1', layout)
+window = sg.Window(f'PathyPy {VERSION}', layout)
 window.Finalize()
 
 
@@ -387,7 +484,7 @@ class Node(object):
         # Prints result
         print(f'Node created at {self.x}, {self.y}. Node id: {self.id}')
 
-    def color(self, color, maze=window['maze']):
+    def color(self, color, border_color='#fff', border_width=1, maze=window['maze']):
         """
         Updates a node color.
 
@@ -399,8 +496,8 @@ class Node(object):
         self.id = maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
                                       bottom_right=(self.x*10+10, self.y*10+10),
                                       fill_color=color,
-                                      line_color='#fff',
-                                      line_width=1)
+                                      line_color=border_color,
+                                      line_width=border_width)
         print(f'Node {self.x}, {self.y} color updated to {color}.')
         
     def get_neighbors(self):
@@ -423,10 +520,14 @@ class Node(object):
         self.is_visited = False
         self.is_active = False
         # reset colors
-        if self.is_wall:
-            self.color(colors['wall'], self.maze)
+        if self.is_start_node:
+            set_start_node(self.loc)
+        elif self.is_end_node:
+            set_end_node(self.loc)
+        elif self.is_wall:
+            set_wall_node(self.loc)
         elif self.is_empty:
-            self.color(colors['empty'], self.maze)
+            set_empty_node(self.loc)
         
             
 
@@ -449,7 +550,28 @@ for x in range(50):
         make_rectangle = Node(window['maze'], (x,y))
         
 # Load test maze
-load_maze(test_maze)
+# def load_test_maze(test_maze):
+#     x = 0
+#     y = 0
+#     for row in test_maze:
+#         for col in row:
+#             if col == 0:
+#                 set_empty_node((x, y))
+#             elif col == 1:
+#                 set_wall_node((x, y))
+#             elif col == 2:
+#                 set_start_node((x, y))
+#             elif col == 3:
+#                 set_end_node((x, y))
+                
+#             # reset the x coordinate after rows are finished
+#             if x < 49:
+#                 x += 1
+#             else: 
+#                 x = 0
+#         y += 1
+# load_test_maze(test_maze)
+
 
 
 
@@ -466,14 +588,18 @@ load_maze(test_maze)
 while True:
     # continuously read the window for events
     event, values = window.read()
-    # break the loop if the window is closed
-    if event == sg.WIN_CLOSED:
+    # break the loop if the window is closed or the 'Exit' button from the menu is clicked
+    if event == sg.WIN_CLOSED or event == 'Exit':
         break
     
+    # maze interactions
     if event == 'maze':
+        # get a floor division of the graph coordinates to get a node location
         loc = (values['maze'][0] // 10, values['maze'][1] // 10)
+        # if the location is out of bounds, pass
         if loc not in NODES:
             pass
+        # draw a node based on the draw mode
         elif MODE == 'draw':
             set_wall_node(loc)
         elif MODE == 'erase':
@@ -483,7 +609,7 @@ while True:
         elif MODE == 'end':
             set_end_node(loc)
     
-    # switch for various buttons and UI controls
+    # algorithm radio switches
     elif event == 'radio_algo_bfs':
         set_algo('bfs')
     elif event == 'radio_algo_dfs':
@@ -492,26 +618,34 @@ while True:
         set_algo('dijkstra')
     elif event == 'radio_algo_astar':
         set_algo('astar')
+        
+    # draw tools
     elif event == 'maze_tools_draw':
         set_draw_mode('draw')
     elif event == 'maze_tools_erase':
         set_draw_mode('erase')
     elif event == 'maze_tools_start':
-        set_draw_mode('solve')
+        set_draw_mode('start')
     elif event == 'maze_tools_end':
         set_draw_mode('end')
     elif event == 'maze_tools_clear':
         clear()
+        enable_drawing_tools()
     elif event == 'maze_tools_reset':
         reset()
+        enable_drawing_tools()
+        
+    # algorithm controls
     elif event == 'controls_solve':
         # Check to make sure there's a start and end
         if START_NODE and END_NODE:
+            disable_drawing_tools()
             print('*'*40 + '\nStart button clicked.\n' + '*'*40)
             # Run algorithm
             if ALGO == 'bfs':
                 bfs(NODES, START_NODE, END_NODE)
         else:
+            sg.popup('The maze needs a start and and end node for a solvable maze.', 'Set these nodes using the "start" and "end" buttons in the maze tools section.')
             print("Needs a start and and end node for a solvable maze.")
     elif event == 'controls_pause':
         print('Pause button clicked.')
@@ -522,8 +656,19 @@ while True:
     elif event == 'controls_speed_slider':
         set_speed(values['controls_speed_slider'])
         print(f'Delay set to {DELAY} ms.')
+        
+    # menu
+    elif event == 'Open Maze':
+        open_maze_file(sg.filedialog.askopenfilename(filetypes=[('Text Document', '*.txt')], defaultextension=[('Text Document', '*.txt')]))
+    elif event == 'Save Maze':
+        save_maze_file(sg.filedialog.asksaveasfile(filetypes=[('Text Document', '*.txt')], defaultextension=[('Text Document', '*.txt')]))
+    elif event == 'Program Info':
+        sg.popup_scrolled(sg.get_versions())
     
-    print(event, type(event))
+    # print out event and values dict
+    print("Event: ", end="")
+    print(event)
+    print("Values: ", end="")
     print(values)
 
 window.close()

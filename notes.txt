@@ -13,3 +13,8 @@ Demo_Radio_Buttons_Simulated.py
 
 Demo_Table_Element_Header_or_Cell_Clicks.py
 	Has click-able table
+
+Candidate Names
+	PathyPy
+	Pathypyer
+	Pythfinder
