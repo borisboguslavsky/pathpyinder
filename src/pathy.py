@@ -158,13 +158,15 @@ def disable_drawing_tools():
 ##     ## ##       ##    ##    ##   ##      ##     ## ##       ##    ##
 ########  ##        ######      ####  ##    ########  ##        ######
 """
-def bfs_dfs(nodes, start_node):
-    """Traverses the maze using a depth-first search algorithm.
+def bfs_dfs(start_node):
+    """Traverses the maze using either a breadth-first or depth-first search algorithm.
+    The two are the same except for the underlying data structure used. 
+    Breadth-first uses a queue (first in, first out).
+    Depth first uses a stack (last in, first out).
     Args:
-        nodes (dict): dictionary of all the Nodes in the maze.
         start_node (instance of Node): The starting point for the algorithm.
     """
-    # create a stack to be worked through in a first-in, first-out manner
+    # use a stack suitable for both bfs and dfs, allowing for both lifo and fifo operations
     stack = collections.deque([])
     # add the starting node to the stack
     stack.append(start_node)
@@ -180,23 +182,22 @@ def bfs_dfs(nodes, start_node):
         # check if it's the end node
         if current_node.is_end_node:
             break
-        # for all neighbor nodes
+        # for all valid neighbor nodes:
+        # (in-bound nodes that are not walls, and have not been visited)
         for neighbor in current_node.get_neighbors():
-            # as long as they're not walls, or have been visited
-            if not nodes[neighbor].is_wall and not nodes[neighbor].is_visited:
-                # nodes[neighbor].make_visited_node()
-                nodes[neighbor].make_neighbor_node()
-                # mark them as visited
-                nodes[neighbor].make_visited_node()
-                current_node.make_visited_node()
-                nodes[neighbor].parent = current_node
-                # 
-                if ALGO == 'bfs':
-                    stack.appendleft(nodes[neighbor])
-                elif ALGO == 'dfs':
-                    stack.append(nodes[neighbor])
-                # refreseh the window
-                window.refresh()
+            # nodes[neighbor].make_visited_node()
+            neighbor.make_neighbor_node()
+            # mark them as visited
+            neighbor.make_visited_node()
+            current_node.make_visited_node()
+            neighbor.parent = current_node
+            # 
+            if ALGO == 'bfs': # queue: first in, first out
+                stack.appendleft(neighbor)
+            elif ALGO == 'dfs': # stack: last in, first out
+                stack.append(neighbor)
+            # refresh the window
+            window.refresh()
     
     # traverse backwards through parent nodes and mark the solution
     while current_node.parent is not None:
@@ -224,7 +225,7 @@ def solve_maze() -> None:
         print('*'*40 + f'\nSolve started via {ALGO.upper()} algorithm.\n' + '*'*40)
         # Run algorithm
         if ALGO == 'bfs' or ALGO == 'dfs':
-            bfs_dfs(NODES, START_NODE)
+            bfs_dfs(START_NODE)
         elif ALGO == 'dijkstra':
             pass # TODO: implement algorithm
         elif ALGO == 'astar':
@@ -454,18 +455,19 @@ class Node(object):
         # print(f'Node {self.x}, {self.y} color updated to {color}.')
         
     def get_neighbors(self) -> None:
-        """Returns a list of coordinates for in-bound, accessible neighbor nodes. 
+        """Returns a list of coordinates for in-bound, accessible neighbor nodes that have not been visited. 
         Neighbor nodes are nodes that are above, below, left, or right of the current node."""
         neighbors = []  
         if self.y != 0:
-            neighbors.append((self.x, self.y-1)) # top
+            neighbors.append(NODES[(self.x, self.y-1)]) # top
         if self.x != 49:
-            neighbors.append((self.x+1, self.y)) # right
+            neighbors.append(NODES[(self.x+1, self.y)]) # right
         if self.y != 49:
-            neighbors.append((self.x, self.y+1)) # bottom
+            neighbors.append(NODES[(self.x, self.y+1)]) # bottom
         if self.x != 0:
-            neighbors.append((self.x-1, self.y)) # left
-        return neighbors
+            neighbors.append(NODES[(self.x-1, self.y)]) # left
+        # prune neighbors list to remove visited nodes or wall nodes
+        return [node for node in neighbors if not node.is_wall and not node.is_visited]
     
     
     def make_start_node(self) -> None:
