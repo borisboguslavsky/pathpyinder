@@ -1,0 +1,3 @@
+C:/Users/Boris/OneDrive/Pathy/mazes/maze_bfstest.txt
+bfs
+5
