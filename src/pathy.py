@@ -13,7 +13,7 @@ import collections          # Using collections.deque() as a stack & queue datas
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '0.0.7'
+VERSION = '0.0.8'
 
 NODES = {}                  # Node grid in a dictionary with (x,y) tuples as keys
 START_NODE = None           # An instance of Node. The node from which the algorithm starts.
@@ -166,33 +166,39 @@ def bfs_dfs(start_node) -> None:
         # set the top node as the currently active node
         current_node = stack.pop()
         # flag the current node as active
-        current_node.make_active_node()
         # check if it's the end node
         if current_node.is_end_node:
             break
         # for all valid neighbor nodes:
         # (in-bound nodes that are not walls, and have not been visited)
-        for neighbor in current_node.get_neighbors():
-            # nodes[neighbor].make_visited_node()
-            neighbor.make_neighbor_node()
-            # mark them as visited
-            neighbor.make_visited_node()
+        neighbors = current_node.get_neighbors()
+        if not neighbors:
+            print(f'No neighbors at {current_node.loc}')
             current_node.make_visited_node()
-            neighbor.parent = current_node
-            # 
-            if ALGO == 'bfs': # queue: first in, first out
-                stack.appendleft(neighbor)
-            elif ALGO == 'dfs': # stack: last in, first out
-                stack.append(neighbor)
-            # refresh the window
-            window.refresh()
+        else:
+            for neighbor in neighbors:
+                # mark the neighbor as visited and style as neighbor
+                neighbor.make_neighbor_node()
+                # mark the current node as visited
+                current_node.make_visited_node()
+                # print(f'{current_node.loc} visited.')
+                neighbor.parent = current_node
+                
+                # add the neighbor to a queue
+                if ALGO == 'bfs': # queue: first in, first out
+                    stack.appendleft(neighbor)
+                elif ALGO == 'dfs': # stack: last in, first out
+                    stack.append(neighbor)
+        window.refresh()
     
     # traverse backwards through parent nodes and mark the solution
     while current_node.parent is not None:
+        wait(DELAY)
         if current_node.is_start_node == True:
             break
         current_node.make_solution_node()
         current_node = current_node.parent
+        window.refresh()
 
 
 
@@ -439,7 +445,7 @@ class Node(object):
         # print(f'Node created at {self.x}, {self.y}. Node id: {self.id}')
 
 
-    def style(self, color, border_color='#fff', border_width=1, maze=window['maze']):
+    def style(self, color, border_color='#fff', border_width=1):
         """
         Updates a node color.
 
@@ -447,10 +453,9 @@ class Node(object):
             color (str: Optional): Hexidecimal string of a color. E.g. `'#FFF'` or `'#2D2D2D'`
             border_color (str: Optional): Hexidecimal string of a color.
             border_width (int: Optional): Width of the border in pixels.
-            maze (object: Optional): The graph object in the main window. Defaults to window['maze'].
         """
-        maze.delete_figure(self.id)
-        self.id = maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
+        self.maze.delete_figure(self.id)
+        self.id = self.maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
                                       bottom_right=(self.x*10+10, self.y*10+10),
                                       fill_color=color,
                                       line_color=border_color,
@@ -507,7 +512,7 @@ class Node(object):
     def make_wall_node(self) -> None:
         """Converts the node to a wall node."""
         self.style(color=colors['wall'], border_color=colors['wall'])
-        window['maze'].send_figure_to_back(self.id)
+        self.maze.send_figure_to_back(self.id)
         self.is_empty = False
         self.is_wall = True
         self.is_visited = False
@@ -541,7 +546,7 @@ class Node(object):
     def make_neighbor_node(self) -> None:
         """Styles a node as a neighbor."""
         self.style(colors['neighbor'])
-        
+        self.is_visited = True
 
     def make_active_node(self) -> None:
         """Flags and styles a node as active."""
