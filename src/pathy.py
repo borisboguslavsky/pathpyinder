@@ -1,6 +1,7 @@
-import PySimpleGUI as sg    # Gui wrapper library for tkinter
-import time                 # Needed for speed setting
-import collections          # Using collections.deque() as a stack & queue datastructure for BFS/DFS algorithms
+import PySimpleGUI as sg        # Gui wrapper library for tkinter
+import time                     # Needed for speed setting
+import collections              # Using collections.deque() as a stack & queue datastructure for BFS/DFS algorithms
+import priority_queue as pq     # Data structure used in Dijkstra's algorithm
 
 
 
@@ -13,26 +14,32 @@ import collections          # Using collections.deque() as a stack & queue datas
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '0.0.8'
+VERSION = '0.0.9'
 
-NODES = {}                  # Node grid in a dictionary with (x,y) tuples as keys
-START_NODE = None           # An instance of Node. The node from which the algorithm starts.
-END_NODE = None             # An instance of Node. The node at which the maze is 'solved'.
+NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
+START_NODE = None               # An instance of Node. The node from which the algorithm starts.
+END_NODE = None                 # An instance of Node. The node at which the maze is 'solved'.
 
-ALGO = 'bfs'                # Pathfinding algorithm to use.
-MODE = 'wall'               # Grid draw mode -> can be set to None, 'wall', 'path', 'start', or 'end'
-DELAY = 0                   # Delay (in seconds) for every iteration of the algorithm loop
+ALGO = 'bfs'                    # Pathfinding algorithm to use.
+MODE = 'wall'                   # Grid draw mode -> can be set to None, 'wall', 'path', 'start', or 'end'
+DELAY = 0                       # Delay (in seconds) for every iteration of the algorithm loop
 
-colors = {                  # Dictionary of colors to use in Node.style()
-    'empty': '#cccccc',     # Grey
-    'wall': '#003333',      # Black
-    'start': '#00cc00',     # Green
-    'end': '#ff3366',       # Orange
+colors = {                      # Dictionary of colors to use in Node.style()
+    'empty': '#cccccc',         # Grey
+    'wall': '#003333',          # Black
+
+    'start': '#00cc00',         # Green
+    'start_border': '#006000',  # Dark Green
+    'end': '#ff3366',           # Red
+    'end_border': '#890F1F',    # Dark Red
+
+    'active': '#EFC700',        # Yellow
+    'visited': '#999966',       # Olive
+    'neighbor': '#96E8FF',      # Light Blue
+    'solution': '#009900',      # Dark Green
     
-    'active': '#FF0800',    # Red
-    'visited': '#999966',   # Olive
-    'neighbor': '#96E8FF',  # Light Blue
-    'solution': '#009900'   # Dark Green
+    'black': '000000',
+    'white': 'FFFFFF',
 }
 
 
@@ -84,10 +91,28 @@ def set_draw_mode(draw_mode: str) -> None:
     print(f"Draw mode set to '{draw_mode}'")
     
 
+def maze_tooltip() -> str:
+    """Returns the tooltip for the maze."""
+    return 'Tooltip'
+
+
+def maze_right_click_menu() -> list:
+    """The menu that will open when a maze node is right clicked."""
+    return ['',['Coordinates', 'Item2']]
+
+
+def bring_start_and_end_nodes_to_front():
+    """Bring the starting and ending nodes to the front of the maze."""
+    if START_NODE:
+        window['maze'].bring_figure_to_front(START_NODE.id)
+    if END_NODE:
+        window['maze'].bring_figure_to_front(END_NODE.id)
+
 def reset() -> None:
     """Clears the solution from the maze and sets all nodes' `is_visited`, and `is_active` flags to `False` via the `Node.reset()` method."""
     for node in NODES.values():
         node.reset_node()
+    bring_start_and_end_nodes_to_front()
     set_draw_mode('wall')
     
 
@@ -165,6 +190,8 @@ def bfs_dfs(start_node) -> None:
         wait(DELAY)
         # set the top node as the currently active node
         current_node = stack.pop()
+        current_node.make_active_node()
+        window.refresh()
         # flag the current node as active
         # check if it's the end node
         if current_node.is_end_node:
@@ -189,16 +216,89 @@ def bfs_dfs(start_node) -> None:
                     stack.appendleft(neighbor)
                 elif ALGO == 'dfs': # stack: last in, first out
                     stack.append(neighbor)
-        window.refresh()
     
-    # traverse backwards through parent nodes and mark the solution
-    while current_node.parent is not None:
-        wait(DELAY)
-        if current_node.is_start_node == True:
+    # Mark the solution path
+    highlight_solution(current_node)
+
+
+
+"""
+########  ####       ## ##    ##  ######  ######## ########     ###
+##     ##  ##        ## ##   ##  ##    ##    ##    ##     ##   ## ##
+##     ##  ##        ## ##  ##   ##          ##    ##     ##  ##   ##
+##     ##  ##        ## #####     ######     ##    ########  ##     ##
+##     ##  ##  ##    ## ##  ##         ##    ##    ##   ##   #########
+##     ##  ##  ##    ## ##   ##  ##    ##    ##    ##    ##  ##     ##
+########  ####  ######  ##    ##  ######     ##    ##     ## ##     ##
+"""
+def dijkstra(start_node) -> None:
+    """Finds the solution to the maze using Dijkstra's algorithm.
+    
+    Args:
+        start_node (instance of Node): The starting point for the algorithm.
+    """
+    # Initialize an updateable priority queue with the start node in it, at priority 0
+    # The 'keys' for the queue will be the coordinates for the nodes
+    queue = pq.UpdateableQueue()
+    queue.push(start_node.loc, 0)
+    
+    # As long as the queue isn't empty:
+    while queue.__len__() > 0:
+        
+        # Get the highest priority node
+        current_node = NODES[queue.pop()[0]]
+        # Check to see if it's the end node
+        if current_node.is_end_node:
             break
-        current_node.make_solution_node()
-        current_node = current_node.parent
+        # Mark it as visited
+        current_node.make_active_node()
         window.refresh()
+        # Delay
+        wait(DELAY)
+        
+        # Get all valid neighbor nodes of that node
+        neighbors = current_node.get_neighbors()
+        # If there are no neighbors, mark that node as visited
+        if not neighbors:
+            print(f'No neighbors at {current_node.loc}')
+            current_node.make_visited_node()
+        # If there are neighbors,
+        else:
+            # For each neighbor:
+            for neighbor in neighbors:
+                # Mark that neighbor as visited, and color it blue
+                neighbor.make_neighbor_node()
+                window.refresh()
+                # Calculate the distance of that node to the start node
+                min_distance = min(neighbor.distance, current_node.distance + 1)
+                if min_distance != neighbor.distance:
+                    neighbor.distance = min_distance
+                    # Set the current node as the parent node for each neighbor
+                    neighbor.parent = current_node
+                    # Change queue priority for the nieghbor since it's now closer
+                    if queue.has(neighbor.loc):
+                        queue.update(neighbor.loc, neighbor.distance)
+                
+                # Add the neighbor to the queue if it's not already in there
+                if not queue.has(neighbor.loc):
+                    queue.push(neighbor.loc, neighbor.distance)
+        # Mark the current node as visited
+        current_node.make_visited_node()
+            
+    # Mark the solution path
+    highlight_solution(current_node)
+
+
+
+"""
+   ###             ######  ########    ###    ########
+  ## ##           ##    ##    ##      ## ##   ##     ##
+ ##   ##          ##          ##     ##   ##  ##     ##
+##     ## #######  ######     ##    ##     ## ########
+#########               ##    ##    ######### ##   ##
+##     ##         ##    ##    ##    ##     ## ##    ##
+##     ##          ######     ##    ##     ## ##     ##
+"""
 
 
 
@@ -222,7 +322,8 @@ def solve_maze() -> None:
         if ALGO == 'bfs' or ALGO == 'dfs':
             bfs_dfs(START_NODE)
         elif ALGO == 'dijkstra':
-            pass # TODO: implement dijkstra's algorithm
+            dijkstra(START_NODE)
+            pass
         elif ALGO == 'astar':
             pass # TODO: implement a* algorithm
     # Show a popup message if there's not both a start and end node
@@ -231,6 +332,16 @@ def solve_maze() -> None:
         print("Needs a start and and end node for a solvable maze.")
 
 
+def highlight_solution(current_node):
+    """Walks back all the parents from the current node and highlights them green."""
+    while current_node.parent is not None:
+        if current_node.is_start_node == True:
+            break
+        current_node.make_solution_node()
+        current_node = current_node.parent
+        window.refresh()
+    START_NODE.make_start_node()
+    END_NODE.make_end_node()
 
 """
  #######  ########  ######## ##    ##    ##     ##    ###    ######## ########
@@ -259,38 +370,42 @@ def open_maze_file(filename: str) -> bool:
             return False
     
     if valid_maze_file(filename):
-        print(f'Open maze file: {filename}')
-        # clear out the existing maze
-        clear()
-        
-        # create a list of lists representing the new maze
-        parsed_maze = []
-        with open(f'{filename}') as new_maze:
-            # for every line in the txt file
-            for line in new_maze.readlines():
-                # create an integer list representing that row and append it to the maze object
-                parsed_maze.append([int(x) for x in line.split(' ')])
-                
-        x = 0
-        y = 0
-        
-        for row in parsed_maze:
-            for col in row:
-                if col == 0:
-                    NODES[(x,y)].make_empty_node()
-                elif col == 1:
-                    NODES[(x,y)].make_wall_node()
-                elif col == 2:
-                    NODES[(x,y)].make_start_node()
-                elif col == 3:
-                    NODES[(x,y)].make_end_node()
+        try:
+            print(f'Open maze file: {filename}')
+            # clear out the existing maze
+            clear()
+            
+            # create a list of lists representing the new maze
+            parsed_maze = []
+            with open(f'{filename}') as new_maze:
+                # for every line in the txt file
+                for line in new_maze.readlines():
+                    # create an integer list representing that row and append it to the maze object
+                    parsed_maze.append([int(x) for x in line.split(' ')])
                     
-                # reset the x coordinate after rows are finished
-                if x < 49:
-                    x += 1
-                else: 
-                    x = 0
-            y += 1
+            # convert nodes according to the list
+            x = 0
+            y = 0
+            for row in parsed_maze:
+                for col in row:
+                    if col == 0:
+                        NODES[(x,y)].make_empty_node()
+                    elif col == 1:
+                        NODES[(x,y)].make_wall_node()
+                    elif col == 2:
+                        NODES[(x,y)].make_start_node()
+                    elif col == 3:
+                        NODES[(x,y)].make_end_node()
+                        
+                    # reset the x coordinate after rows are finished
+                    if x < 49:
+                        x += 1
+                    else: 
+                        x = 0
+                y += 1
+            bring_start_and_end_nodes_to_front()
+        except:
+            sg.popup('Error loading maze')
 
 
 
@@ -374,7 +489,7 @@ layout_controls = [
         sg.Button('\u25b6', key='controls_play', expand_x=True, tooltip=""),    # Play
         sg.Button('\u23f9', key='controls_stop', expand_x=True, tooltip="")     # Stop
     ],
-    [sg.Text('Speed:'), sg.Slider(range=(0,5), default_value=5, key='controls_speed_slider', orientation='h', size=(10, 20), expand_x=True, enable_events=True, tooltip="Speed of the algorithm. Higher is faster.")]
+    [sg.Text('Speed:'), sg.Slider(range=(1,5), default_value=5, key='controls_speed_slider', orientation='h', size=(10, 20), expand_x=True, enable_events=True, tooltip="Speed of the algorithm. Higher is faster.")]
 ]
 layout = [
     [sg.Menu(menu, background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
@@ -382,9 +497,10 @@ layout = [
               canvas_size=(500, 500),
               graph_bottom_left=(0,500),
               graph_top_right=(500,0),
-              background_color = "#ff0000",
-              drag_submits = True,
-              enable_events = True,)
+              background_color="#ff0000",
+              drag_submits=True,
+              enable_events=True,
+              right_click_menu=maze_right_click_menu())
     ],
     [
         [sg.Frame('Algorithm', layout_algo_radios, expand_y=True, expand_x=True),
@@ -418,10 +534,10 @@ class Node(object):
     The graph is 500x500px, so there can be a total of 50x50 nodes in the window.
     """
     def __init__(self, maze: str, location: tuple) -> None:
-        self.maze = maze        # reference to the window graph object
-        self.x = location[0]    # x coordinate    
-        self.y = location[1]    # y coordinate
-        self.loc = location     # tuple of (x,y)
+        self.maze = maze                # reference to the window graph object
+        self.x = location[0]            # x coordinate    
+        self.y = location[1]            # y coordinate
+        self.loc = location             # tuple of (x,y)
         
         # Status attributes
         self.is_empty = True
@@ -431,7 +547,8 @@ class Node(object):
         self.is_visited = False
         self.is_active = False
         
-        self.parent = None      # parent node for backtracking and highlighting maze solution
+        self.parent = None              # parent node for backtracking and highlighting maze solution
+        self.distance = float('inf')    # distance of the node from the start node (used in dijkstra's algorithm)
         
         # Draw the node on the graph and store the drawn figure in the id attribute
         self.id = maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
@@ -456,10 +573,10 @@ class Node(object):
         """
         self.maze.delete_figure(self.id)
         self.id = self.maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
-                                      bottom_right=(self.x*10+10, self.y*10+10),
-                                      fill_color=color,
-                                      line_color=border_color,
-                                      line_width=border_width)
+                                           bottom_right=(self.x*10+10, self.y*10+10),
+                                           fill_color=color,
+                                           line_color=border_color,
+                                           line_width=border_width)
         # print(f'Node {self.x}, {self.y} color updated to {color}.')
     
 
@@ -485,13 +602,13 @@ class Node(object):
         # Remove existing start node
         if START_NODE:
             START_NODE.make_empty_node()
-        # Establish new start node
         START_NODE = self
-        self.style(colors['start'], border_color=colors['start'], border_width=2)
+        self.style(colors['start'], border_color=colors['start_border'], border_width=4)
         self.is_empty = True
         self.is_wall = False
         self.is_start_node = True
         self.is_end_node = False
+        self.distance = 0
     
 
     def make_end_node(self) -> None:
@@ -500,13 +617,13 @@ class Node(object):
         # Remove existing end node
         if END_NODE:
             END_NODE.make_empty_node()
-        # Establish new end node
         END_NODE = self
-        self.style(colors['end'], border_color=colors['end'], border_width=2)
+        self.style(colors['end'], border_color=colors['end_border'], border_width=4)
         self.is_empty = True
         self.is_wall = False
         self.is_start_node = False
         self.is_end_node = True
+        self.distance = float('inf')
         
 
     def make_wall_node(self) -> None:
@@ -518,6 +635,7 @@ class Node(object):
         self.is_visited = False
         self.is_start_node = False
         self.is_end_node = False
+        self.distance = float('inf')
         
 
     def make_empty_node(self) -> None:
@@ -527,6 +645,7 @@ class Node(object):
         self.is_wall = False
         self.is_visited = False
         self.is_active = False
+        self.distance = float('inf')
         if self.is_start_node:
             global START_NODE
             self.is_start_node = False
@@ -550,7 +669,7 @@ class Node(object):
 
     def make_active_node(self) -> None:
         """Flags and styles a node as active."""
-        self.style(colors['active'], colors['active'], 3)
+        self.style(colors['active'], colors['black'], border_width=3)
         self.is_active = True
 
 
