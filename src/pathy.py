@@ -14,7 +14,7 @@ import priority_queue as pq     # Data structure used in Dijkstra's algorithm
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '0.0.9'
+VERSION = '0.1.1'
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
 START_NODE = None               # An instance of Node. The node from which the algorithm starts.
@@ -23,6 +23,10 @@ END_NODE = None                 # An instance of Node. The node at which the maz
 ALGO = 'bfs'                    # Pathfinding algorithm to use.
 MODE = 'wall'                   # Grid draw mode -> can be set to None, 'wall', 'path', 'start', or 'end'
 DELAY = 0                       # Delay (in seconds) for every iteration of the algorithm loop
+SPEED = None                    # Speed level (1-5) displayed above the speed slider, loaded on initialization
+
+STOPPED = False
+PAUSED = True
 
 colors = {                      # Dictionary of colors to use in Node.style()
     'empty': '#CCCCCC',         # Grey
@@ -86,7 +90,7 @@ def set_draw_mode(draw_mode: str) -> None:
     window['maze_tools_start'].Widget.configure(relief='raised')
     window['maze_tools_end'].update(button_color=('#000', '#f0f0f0'))
     window['maze_tools_end'].Widget.configure(relief='raised')
-    window['maze_tools_'+draw_mode].update(button_color='white on green')
+    window['maze_tools_'+draw_mode].update(button_color='white on grey')
     window['maze_tools_'+draw_mode].Widget.configure(relief='sunken')
     print(f"Draw mode set to '{draw_mode}'")
     
@@ -126,18 +130,20 @@ def clear() -> None:
 def set_speed(speed: float) -> None:
     """Sets a delay (in seconds) between each algorithm iteration"""
     global DELAY
-    speed = int(speed)
-    if speed == 1:
+    global SPEED
+    SPEED = int(speed)
+    window['controls_speed_label'].update(value=f'Speed: {SPEED}')
+    if SPEED == 1:
+        DELAY = 1.00
+    elif SPEED == 2:
         DELAY = 0.25
-    elif speed == 2:
-        DELAY = 0.1
-    elif speed == 3:
+    elif SPEED == 3:
         DELAY = 0.05
-    elif speed == 4:
+    elif SPEED == 4:
         DELAY = 0.01
-    elif speed == 5:
-        DELAY = 0.0
-    print(f'Delay set to {DELAY} ms.')
+    elif SPEED == 5:
+        DELAY = 0.00
+    print(f'Delay set to {DELAY}s.')
 
 
 def wait(t) -> None:
@@ -161,6 +167,36 @@ def disable_drawing_tools() -> None:
     window['maze_tools_end'].update(disabled=True, button_color=('#000', '#f0f0f0'))
 
 
+def enable_algo_radios() -> None:
+    """Enables the algorithm selection radios"""
+    window['radio_algo_bfs'].update(disabled=False)
+    window['radio_algo_dfs'].update(disabled=False)
+    window['radio_algo_dijkstra'].update(disabled=False)
+    window['radio_algo_astar'].update(disabled=False)
+
+
+def disable_algo_radios() -> None:
+    """Disables the algorithm selection radios"""
+    window['radio_algo_bfs'].update(disabled=True)
+    window['radio_algo_dfs'].update(disabled=True)
+    window['radio_algo_dijkstra'].update(disabled=True)
+    window['radio_algo_astar'].update(disabled=True)
+
+
+def read_algo_controls():
+    """Reads inputs from the control panel while the algorithm is running."""
+    event, values = window.read(timeout=5)
+    if event == 'controls_playpause':
+        print('Play/Pause button clicked.')
+        return window.read()
+    elif event == 'controls_next':
+        print('Next button clicked.')
+    elif event == 'controls_stop':
+        print('='*80 + 'Algorithm Stopped' + '='*80)
+        return window.read()
+    elif event == 'controls_speed_slider':
+        set_speed(values['controls_speed_slider'])
+    return event, values
 
 """
 ########  ########  ######       ####       ########  ########  ######
@@ -171,18 +207,16 @@ def disable_drawing_tools() -> None:
 ##     ## ##       ##    ##    ##   ##      ##     ## ##       ##    ##
 ########  ##        ######      ####  ##    ########  ##        ######
 """
-def bfs_dfs(start_node) -> None:
+def bfs_dfs() -> None:
     """Traverses the maze using either a breadth-first or depth-first search algorithm.
     The two are the same except for the underlying data structure used. 
     Breadth-first uses a queue (first in, first out).
     Depth first uses a stack (last in, first out).
-    Args:
-        start_node (instance of Node): The starting point for the algorithm.
     """
     # use a stack suitable for both bfs and dfs, allowing for both lifo and fifo operations
     stack = collections.deque([])
     # add the starting node to the stack
-    stack.append(start_node)
+    stack.append(START_NODE)
     
     # as long as the stack has a node
     while stack:
@@ -191,7 +225,9 @@ def bfs_dfs(start_node) -> None:
         # set the top node as the currently active node
         current_node = stack.pop()
         current_node.make_active_node()
-        window.refresh()
+        
+        read_algo_controls()
+        
         # flag the current node as active
         # check if it's the end node
         if current_node.is_end_node:
@@ -231,16 +267,13 @@ def bfs_dfs(start_node) -> None:
 ##     ##  ##  ##    ## ##   ##  ##    ##    ##    ##    ##  ##     ##
 ########  ####  ######  ##    ##  ######     ##    ##     ## ##     ##
 """
-def dijkstra(start_node) -> None:
+def dijkstra() -> None:
     """Finds the solution to the maze using Dijkstra's algorithm.
-    
-    Args:
-        start_node (instance of Node): The starting point for the algorithm.
     """
     # Initialize an updateable priority queue with the start node in it, at priority 0
     # The 'keys' for the queue will be the coordinates for the nodes
     queue = pq.UpdateableQueue()
-    queue.push(start_node.loc, 0)
+    queue.push(START_NODE.loc, 0)
     
     # As long as the queue isn't empty:
     while queue.__len__() > 0:
@@ -299,11 +332,8 @@ def dijkstra(start_node) -> None:
 ##     ##         ##    ##    ##    ##     ## ##    ##
 ##     ##          ######     ##    ##     ## ##     ##
 """
-def astar(start_node) -> None:
+def astar() -> None:
     """Finds the solution to the maze using the A-star (A*) algorithm.
-    
-    Args:
-        start_node (instance of Node): The starting point for the algorithm.
     """
     # Calculate the 'manhattan distance' of each node to the END_NODE
     for node in NODES.values():
@@ -314,7 +344,7 @@ def astar(start_node) -> None:
     # Initialize an updateable priority queue with the start node in it, at priority 0
     # The 'keys' for the queue will be the coordinates for the nodes
     queue = pq.UpdateableQueue()
-    queue.push(start_node.loc, 0)
+    queue.push(START_NODE.loc, 0)
     
     # As long as the queue isn't empty:
     while queue.__len__() > 0:
@@ -379,14 +409,15 @@ def solve_maze() -> None:
     # Check to make sure there's a start and end node
     if START_NODE and END_NODE:
         disable_drawing_tools()
+        disable_algo_radios()
         print('*'*40 + f'\nSolve started via {ALGO.upper()} algorithm.\n' + '*'*40)
         # Run algorithm
         if ALGO == 'bfs' or ALGO == 'dfs':
-            bfs_dfs(START_NODE)
+            bfs_dfs()
         elif ALGO == 'dijkstra':
-            dijkstra(START_NODE)
+            dijkstra()
         elif ALGO == 'astar':
-            astar(START_NODE)
+            astar()
     # Show a popup message if there's not both a start and end node
     else:
         sg.popup('The maze needs a start and and end node for a solvable maze.', 'Set these nodes using the "start" and "end" buttons in the maze tools section.')
@@ -545,12 +576,27 @@ layout_maze_tools = [
 ]
 layout_controls = [                             
     [
-        sg.Button('Solve', key='controls_solve', expand_x=True, tooltip="Solves the maze using the selected algorithm."),    # Start
-        sg.Button('\u23f8', key='controls_pause', expand_x=True, tooltip=""),   # Pause TODO: implement multithreading to make controls work
-        sg.Button('\u25b6', key='controls_play', expand_x=True, tooltip=""),    # Play
-        sg.Button('\u23f9', key='controls_stop', expand_x=True, tooltip="")     # Stop
+        sg.Button('Solve', key='controls_solve', expand_x=True, tooltip="Solves the maze using the selected algorithm."),    # Solve
     ],
-    [sg.Text('Speed:'), sg.Slider(range=(1,5), default_value=5, key='controls_speed_slider', orientation='h', size=(10, 20), expand_x=True, enable_events=True, tooltip="Speed of the algorithm. Higher is faster.")]
+    [
+        sg.Button('\u23ef', key='controls_playpause', expand_x=True, tooltip="Play/Pause"),   # Play/pause
+        sg.Button('\u23e9', key='controls_next', expand_x=True, tooltip="Step Forward"),    # Next
+        sg.Button('\u23f9', key='controls_stop', expand_x=True, tooltip="Stop")     # Stop
+    ],
+    [
+        sg.Text(f'Speed:', key='controls_speed_label'), 
+    ],
+    [
+        sg.Slider(range=(1,5), 
+                  default_value=5, 
+                  key='controls_speed_slider', 
+                  orientation='h', 
+                  size=(10, 15), 
+                  expand_x=True, 
+                  enable_events=True, 
+                  disable_number_display=True,
+                  tooltip="Speed of the algorithm. Higher is faster.")
+    ]
 ]
 layout = [
     [sg.Menu(menu, background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
@@ -875,18 +921,22 @@ while True:
     elif event == 'maze_tools_clear':
         clear()
         enable_drawing_tools()
+        enable_algo_radios()
     elif event == 'maze_tools_reset':
         reset()
         enable_drawing_tools()
+        enable_algo_radios()
         
     # Algorithm controls
     elif event == 'controls_solve':
+        STOPPED = False
         solve_maze()
-    elif event == 'controls_pause':
-        print('Pause button clicked.')
-    elif event == 'controls_play':
-        print('Play button clicked.')
+    elif event == 'controls_playpause':
+        print('Play/Pause button clicked.')
+    elif event == 'controls_next':
+        print('Next button clicked.')
     elif event == 'controls_stop':
+        STOPPED = True
         print('Stop button clicked.')
     elif event == 'controls_speed_slider':
         set_speed(values['controls_speed_slider'])
