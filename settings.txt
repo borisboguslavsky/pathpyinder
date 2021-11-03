@@ -1,3 +1,3 @@
-C:/Users/Boris/OneDrive/Pathy/mazes/maze_empty.txt
-dijkstra
-5
+C:/Users/Boris/OneDrive/Pathy/mazes/maze_5.txt
+astar
+3

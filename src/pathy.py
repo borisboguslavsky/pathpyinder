@@ -25,12 +25,12 @@ MODE = 'wall'                   # Grid draw mode -> can be set to None, 'wall', 
 DELAY = 0                       # Delay (in seconds) for every iteration of the algorithm loop
 
 colors = {                      # Dictionary of colors to use in Node.style()
-    'empty': '#cccccc',         # Grey
+    'empty': '#CCCCCC',         # Grey
     'wall': '#003333',          # Black
 
-    'start': '#00cc00',         # Green
+    'start': '#00CC00',         # Green
     'start_border': '#006000',  # Dark Green
-    'end': '#ff3366',           # Red
+    'end': '#FF3366',           # Red
     'end_border': '#890F1F',    # Dark Red
 
     'active': '#EFC700',        # Yellow
@@ -299,7 +299,69 @@ def dijkstra(start_node) -> None:
 ##     ##         ##    ##    ##    ##     ## ##    ##
 ##     ##          ######     ##    ##     ## ##     ##
 """
-
+def astar(start_node) -> None:
+    """Finds the solution to the maze using the A-star (A*) algorithm.
+    
+    Args:
+        start_node (instance of Node): The starting point for the algorithm.
+    """
+    # Calculate the 'manhattan distance' of each node to the END_NODE
+    for node in NODES.values():
+        # the manhattan distance is the total number of steps it takes to get from one node to another
+        # it's multiplied by two to reinforce the heuristic
+        node.end_distance = (abs(END_NODE.x - node.x) + abs(END_NODE.y - node.y)) * 2
+    
+    # Initialize an updateable priority queue with the start node in it, at priority 0
+    # The 'keys' for the queue will be the coordinates for the nodes
+    queue = pq.UpdateableQueue()
+    queue.push(start_node.loc, 0)
+    
+    # As long as the queue isn't empty:
+    while queue.__len__() > 0:
+        
+        # Get the highest priority node
+        current_node = NODES[queue.pop()[0]]
+        # Check to see if it's the end node
+        if current_node.is_end_node:
+            break
+        # Mark it as visited
+        current_node.make_active_node()
+        window.refresh()
+        # Delay
+        wait(DELAY)
+        
+        # Get all valid neighbor nodes of that node
+        neighbors = current_node.get_neighbors()
+        # If there are no neighbors, mark that node as visited
+        if not neighbors:
+            print(f'No neighbors at {current_node.loc}')
+            current_node.make_visited_node()
+        # If there are neighbors,
+        else:
+            # For each neighbor:
+            for neighbor in neighbors:
+                # Mark that neighbor as visited, and color it blue
+                neighbor.make_neighbor_node()
+                window.refresh()
+                
+                neighbor.start_distance = min(neighbor.start_distance, current_node.start_distance + 1)
+                min_distance = min(neighbor.distance, neighbor.start_distance + neighbor.end_distance)
+                if min_distance != neighbor.distance:
+                    neighbor.distance = min_distance
+                    neighbor.parent = current_node
+                
+                # Update neighbor priority
+                if queue.has(neighbor.loc):
+                    queue.update(neighbor.loc, min_distance)
+                    
+            if not queue.has(neighbor.loc):
+                queue.push(neighbor.loc, neighbor.distance)
+                
+        # Mark the current node as visited
+        current_node.make_visited_node()
+            
+    # Mark the solution path
+    highlight_solution(current_node)
 
 
 """
@@ -323,9 +385,8 @@ def solve_maze() -> None:
             bfs_dfs(START_NODE)
         elif ALGO == 'dijkstra':
             dijkstra(START_NODE)
-            pass
         elif ALGO == 'astar':
-            pass # TODO: implement a* algorithm
+            astar(START_NODE)
     # Show a popup message if there's not both a start and end node
     else:
         sg.popup('The maze needs a start and and end node for a solvable maze.', 'Set these nodes using the "start" and "end" buttons in the maze tools section.')
@@ -534,10 +595,10 @@ class Node(object):
     The graph is 500x500px, so there can be a total of 50x50 nodes in the window.
     """
     def __init__(self, maze: str, location: tuple) -> None:
-        self.maze = maze                # reference to the window graph object
-        self.x = location[0]            # x coordinate    
-        self.y = location[1]            # y coordinate
-        self.loc = location             # tuple of (x,y)
+        self.maze = maze                    # reference to the window graph object
+        self.x = location[0]                # x coordinate    
+        self.y = location[1]                # y coordinate
+        self.loc = location                 # tuple of (x,y)
         
         # Status attributes
         self.is_empty = True
@@ -547,8 +608,10 @@ class Node(object):
         self.is_visited = False
         self.is_active = False
         
-        self.parent = None              # parent node for backtracking and highlighting maze solution
-        self.distance = float('inf')    # distance of the node from the start node (used in dijkstra's algorithm)
+        self.parent = None                  # parent node for backtracking and highlighting maze solution
+        self.distance = float('inf')        # generic distance attribute of the node (used in dijkstra and astar algorithms)
+        self.start_distance = float('inf')  # distance of the node from the start node (used in astar algorithm)
+        self.end_distance = float('inf')    # distance of the node from the end node (used in astar algorithm)
         
         # Draw the node on the graph and store the drawn figure in the id attribute
         self.id = maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
@@ -609,6 +672,8 @@ class Node(object):
         self.is_start_node = True
         self.is_end_node = False
         self.distance = 0
+        self.start_distance = 0
+        self.end_distance = float('inf')
     
 
     def make_end_node(self) -> None:
@@ -624,6 +689,8 @@ class Node(object):
         self.is_start_node = False
         self.is_end_node = True
         self.distance = float('inf')
+        self.start_distance = float('inf')
+        self.end_distance = float('inf')
         
 
     def make_wall_node(self) -> None:
@@ -636,6 +703,8 @@ class Node(object):
         self.is_start_node = False
         self.is_end_node = False
         self.distance = float('inf')
+        self.start_distance = float('inf')
+        self.end_distance = float('inf')
         
 
     def make_empty_node(self) -> None:
@@ -646,6 +715,8 @@ class Node(object):
         self.is_visited = False
         self.is_active = False
         self.distance = float('inf')
+        self.start_distance = float('inf')
+        self.end_distance = float('inf')
         if self.is_start_node:
             global START_NODE
             self.is_start_node = False
@@ -661,7 +732,6 @@ class Node(object):
         self.style(colors['visited'])
         self.is_visited = True
         
-        
     def make_neighbor_node(self) -> None:
         """Styles a node as a neighbor."""
         self.style(colors['neighbor'])
@@ -671,7 +741,6 @@ class Node(object):
         """Flags and styles a node as active."""
         self.style(colors['active'], colors['black'], border_width=3)
         self.is_active = True
-
 
     def make_solution_node(self) -> None:
         """Styles a node as part of the solution path."""
