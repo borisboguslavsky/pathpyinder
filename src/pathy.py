@@ -14,7 +14,7 @@ import priority_queue as pq     # Data structure used in Dijkstra's algorithm
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '0.1.1'
+VERSION = '0.1.2'
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
 START_NODE = None               # An instance of Node. The node from which the algorithm starts.
@@ -22,11 +22,12 @@ END_NODE = None                 # An instance of Node. The node at which the maz
 
 ALGO = 'bfs'                    # Pathfinding algorithm to use.
 MODE = 'wall'                   # Grid draw mode -> can be set to None, 'wall', 'path', 'start', or 'end'
+TEMP_DELAY = None               # Temporary variable to store original DELAY while DELAY is overwritten with None for one loop iteration (used for next button)
 DELAY = 0                       # Delay (in seconds) for every iteration of the algorithm loop
 SPEED = None                    # Speed level (1-5) displayed above the speed slider, loaded on initialization
 
 STOPPED = False
-PAUSED = True
+PAUSED = False
 
 colors = {                      # Dictionary of colors to use in Node.style()
     'empty': '#CCCCCC',         # Grey
@@ -117,6 +118,14 @@ def reset() -> None:
     for node in NODES.values():
         node.reset_node()
     bring_start_and_end_nodes_to_front()
+    disable_media_controls()
+    enable_drawing_tools()
+    enable_algo_radios()
+    global PAUSED
+    PAUSED = False
+    depress_button('controls_pause')
+    enable_element('controls_solve')
+    depress_button('controls_solve')
     set_draw_mode('wall')
     
 
@@ -124,26 +133,40 @@ def clear() -> None:
     """Empties the entire grid, leaving only path/empty nodes."""
     for node in NODES.values():
         node.make_empty_node()
+    disable_media_controls()
+    enable_drawing_tools()
+    enable_algo_radios()
+    global PAUSED
+    PAUSED = False
+    depress_button('controls_pause')
+    enable_element('controls_solve')
+    depress_button('controls_solve')
     set_draw_mode('wall')
     
     
 def set_speed(speed: float) -> None:
-    """Sets a delay (in seconds) between each algorithm iteration"""
+    """Sets a delay (in milliseconds) between each algorithm iteration"""
     global DELAY
+    global TEMP_DELAY
     global SPEED
     SPEED = int(speed)
     window['controls_speed_label'].update(value=f'Speed: {SPEED}')
     if SPEED == 1:
-        DELAY = 1.00
+        DELAY = 1500
+        TEMP_DELAY = 1500
     elif SPEED == 2:
-        DELAY = 0.25
+        DELAY = 750
+        TEMP_DELAY = 750
     elif SPEED == 3:
-        DELAY = 0.05
+        DELAY = 250
+        TEMP_DELAY = 250
     elif SPEED == 4:
-        DELAY = 0.01
+        DELAY = 50
+        TEMP_DELAY = 50
     elif SPEED == 5:
-        DELAY = 0.00
-    print(f'Delay set to {DELAY}s.')
+        DELAY = 0
+        TEMP_DELAY = 0
+    print(f'Delay set to: {DELAY}s.')
 
 
 def wait(t) -> None:
@@ -151,52 +174,132 @@ def wait(t) -> None:
     time.sleep(t)
     
     
+def disable_element(sg_key) -> None:
+    """Disables a button."""
+    window[sg_key].update(disabled=True)
+
+
+def enable_element(sg_key) -> None:
+    """Enables a button."""
+    window[sg_key].update(disabled=False)
+
+
+def depress_button(sg_key, colors=('#000', '#f0f0f0')) -> None:
+    """
+    Styles a button to be de-pressed
+    
+    Args:
+        `sg_key` (str): The PySimpleGUI Key for the button
+        `button_color` (tuple or str): Two colors for the button text, and background, respectively.
+            Example: 'white on grey', ('#000', '#f0f0f0')
+    """
+    window[sg_key].update(button_color=colors)
+    window[sg_key].Widget.configure(relief='raised')
+    
+
+def press_button(sg_key, colors=('#000', '#f0f0f0')) -> None:
+    """
+    Styles a button to be pressed
+    
+    Args:
+        `sg_key` (str): The PySimpleGUI Key for the button
+        `button_color` (tuple or str): Two colors for the button text, and background, respectively.
+            Example: 'white on grey', ('#000', '#f0f0f0')
+    """
+    window[sg_key].update(button_color=colors)
+    window[sg_key].Widget.configure(relief='sunken')
+    
+    
 def enable_drawing_tools() -> None:
     """Enables the `wall`, `path`, `start, and `end` buttons in the UI and sets the draw mode to 'wall'."""
-    window['maze_tools_wall'].update(disabled=False)
-    window['maze_tools_path'].update(disabled=False)
-    window['maze_tools_start'].update(disabled=False)
-    window['maze_tools_end'].update(disabled=False)
+    for button in ['maze_tools_wall', 'maze_tools_path', 'maze_tools_start', 'maze_tools_end']: 
+        enable_element(button)
     
     
 def disable_drawing_tools() -> None:
     """Disables the `wall`, `path`, `start, and `end` buttons in the UI and sets the draw mode to `None`."""
-    window['maze_tools_wall'].update(disabled=True, button_color=('#000', '#f0f0f0'))
-    window['maze_tools_path'].update(disabled=True, button_color=('#000', '#f0f0f0'))
-    window['maze_tools_start'].update(disabled=True, button_color=('#000', '#f0f0f0'))
-    window['maze_tools_end'].update(disabled=True, button_color=('#000', '#f0f0f0'))
+    for button in ['maze_tools_wall', 'maze_tools_path', 'maze_tools_start', 'maze_tools_end']: 
+        window[button].update(disabled=True, button_color=('#000', '#f0f0f0'))
 
 
 def enable_algo_radios() -> None:
-    """Enables the algorithm selection radios"""
-    window['radio_algo_bfs'].update(disabled=False)
-    window['radio_algo_dfs'].update(disabled=False)
-    window['radio_algo_dijkstra'].update(disabled=False)
-    window['radio_algo_astar'].update(disabled=False)
+    """Enables the algorithm selection radios."""
+    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_dijkstra', 'radio_algo_astar']:
+        enable_element(radio)
 
 
 def disable_algo_radios() -> None:
-    """Disables the algorithm selection radios"""
-    window['radio_algo_bfs'].update(disabled=True)
-    window['radio_algo_dfs'].update(disabled=True)
-    window['radio_algo_dijkstra'].update(disabled=True)
-    window['radio_algo_astar'].update(disabled=True)
+    """Disables the algorithm selection radios."""
+    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_dijkstra', 'radio_algo_astar']:
+        disable_element(radio)
+    
+
+def enable_media_controls() -> None:
+    """Enables the pause/next/stop buttons."""
+    enable_element('controls_pause')
+    enable_element('controls_next')
 
 
-def read_algo_controls():
-    """Reads inputs from the control panel while the algorithm is running."""
-    event, values = window.read(timeout=5)
-    if event == 'controls_playpause':
-        print('Play/Pause button clicked.')
-        return window.read()
+def disable_media_controls() -> None:
+    """Disables the pause/next/stop buttons."""
+    disable_element('controls_pause')
+    disable_element('controls_next')
+    
+    
+def read_algo_controls(timeout=None) -> bool:
+    """Reads inputs from the control panel while the algorithm is running.
+    Returns `True` to continue running. Returns `False` to break out of the algorithm loop."""
+    event, values = window.read(timeout)
+    # Break out of the function if it's just a timeout event
+    if event == '__TIMEOUT__':
+        return True # Keep going
+    
+    global TEMP_DELAY
+    global DELAY
+    DELAY = TEMP_DELAY
+    
+    # Pause Button
+    if event == 'controls_pause':
+        print('Pause button clicked.')
+        global PAUSED
+        # Update button style
+        if PAUSED:
+            depress_button('controls_pause')
+        elif not PAUSED:
+            press_button('controls_pause', 'white on grey')
+            
+        # Toggle the PAUSED boolean
+        PAUSED = not PAUSED
+        if PAUSED:
+            # If paused, wait for additional input
+            return read_algo_controls(timeout=None)
+        return True
+        
+    # Next Button
     elif event == 'controls_next':
         print('Next button clicked.')
-    elif event == 'controls_stop':
-        print('='*80 + 'Algorithm Stopped' + '='*80)
-        return window.read()
+        TEMP_DELAY = DELAY
+        DELAY = None
+        return True
+    
+    # Speed Slider
     elif event == 'controls_speed_slider':
         set_speed(values['controls_speed_slider'])
-    return event, values
+        if PAUSED:
+            return read_algo_controls(timeout=None)
+        return True
+        
+    # Reset/Clear Buttons
+    elif event == 'maze_tools_clear':
+        clear()
+        return False
+    elif event == 'maze_tools_reset':
+        reset()
+        return False
+    # Log window event and values
+    print("Event: \t", event)
+    print("Values: ", values)
+    return True
 
 """
 ########  ########  ######       ####       ########  ########  ######
@@ -213,6 +316,7 @@ def bfs_dfs() -> None:
     Breadth-first uses a queue (first in, first out).
     Depth first uses a stack (last in, first out).
     """
+    interrupted = False
     # use a stack suitable for both bfs and dfs, allowing for both lifo and fifo operations
     stack = collections.deque([])
     # add the starting node to the stack
@@ -220,13 +324,15 @@ def bfs_dfs() -> None:
     
     # as long as the stack has a node
     while stack:
-        # delay
-        wait(DELAY)
         # set the top node as the currently active node
         current_node = stack.pop()
         current_node.make_active_node()
         
-        read_algo_controls()
+        # Check for user input.
+        # Break out of the loop if read_algo_controls() returns False
+        if not read_algo_controls(timeout=DELAY): 
+            interrupted = True
+            break
         
         # flag the current node as active
         # check if it's the end node
@@ -254,7 +360,7 @@ def bfs_dfs() -> None:
                     stack.append(neighbor)
     
     # Mark the solution path
-    highlight_solution(current_node)
+    if not interrupted: highlight_solution(current_node)
 
 
 
@@ -286,8 +392,12 @@ def dijkstra() -> None:
         # Mark it as visited
         current_node.make_active_node()
         window.refresh()
-        # Delay
-        wait(DELAY)
+        
+        # Check for user input.
+        # Break out of the loop if read_algo_controls() returns False
+        if not read_algo_controls(timeout=DELAY): 
+            interrupted = True
+            break
         
         # Get all valid neighbor nodes of that node
         neighbors = current_node.get_neighbors()
@@ -319,7 +429,7 @@ def dijkstra() -> None:
         current_node.make_visited_node()
             
     # Mark the solution path
-    highlight_solution(current_node)
+    if not interrupted: highlight_solution(current_node)
 
 
 
@@ -357,8 +467,12 @@ def astar() -> None:
         # Mark it as visited
         current_node.make_active_node()
         window.refresh()
-        # Delay
-        wait(DELAY)
+        
+        # Check for user input.
+        # Break out of the loop if read_algo_controls() returns False
+        if not read_algo_controls(timeout=DELAY): 
+            interrupted = True
+            break
         
         # Get all valid neighbor nodes of that node
         neighbors = current_node.get_neighbors()
@@ -391,7 +505,7 @@ def astar() -> None:
         current_node.make_visited_node()
             
     # Mark the solution path
-    highlight_solution(current_node)
+    if not interrupted: highlight_solution(current_node)
 
 
 """
@@ -422,10 +536,15 @@ def solve_maze() -> None:
     else:
         sg.popup('The maze needs a start and and end node for a solvable maze.', 'Set these nodes using the "start" and "end" buttons in the maze tools section.')
         print("Needs a start and and end node for a solvable maze.")
+        enable_element('controls_solve')
+        depress_button('controls_solve')
 
 
 def highlight_solution(current_node):
     """Walks back all the parents from the current node and highlights them green."""
+    disable_element('controls_pause')
+    depress_button('controls_pause')
+    disable_element('controls_next')
     while current_node.parent is not None:
         if current_node.is_start_node == True:
             break
@@ -579,9 +698,8 @@ layout_controls = [
         sg.Button('Solve', key='controls_solve', expand_x=True, tooltip="Solves the maze using the selected algorithm."),    # Solve
     ],
     [
-        sg.Button('\u23ef', key='controls_playpause', expand_x=True, tooltip="Play/Pause"),   # Play/pause
-        sg.Button('\u23e9', key='controls_next', expand_x=True, tooltip="Step Forward"),    # Next
-        sg.Button('\u23f9', key='controls_stop', expand_x=True, tooltip="Stop")     # Stop
+        sg.Button('\u23f8', key='controls_pause', expand_x=True, disabled=True, tooltip="Play/Pause"),   # Play/pause
+        sg.Button('\u23e9', key='controls_next', expand_x=True, disabled=True, tooltip="Step Forward"),    # Next
     ],
     [
         sg.Text(f'Speed:', key='controls_speed_label'), 
@@ -676,9 +794,9 @@ class Node(object):
         Updates a node color.
 
         Args:
-            color (str: Optional): Hexidecimal string of a color. E.g. `'#FFF'` or `'#2D2D2D'`
-            border_color (str: Optional): Hexidecimal string of a color.
-            border_width (int: Optional): Width of the border in pixels.
+            `color` (str: Optional): Hexidecimal string of a color. E.g. `'#FFF'` or `'#2D2D2D'`
+            `border_color` (str: Optional): Hexidecimal string of a color.
+            `border_width` (int: Optional): Width of the border in pixels.
         """
         self.maze.delete_figure(self.id)
         self.id = self.maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
@@ -930,14 +1048,14 @@ while True:
     # Algorithm controls
     elif event == 'controls_solve':
         STOPPED = False
+        enable_media_controls()
+        disable_element('controls_solve')
+        press_button('controls_solve')
         solve_maze()
-    elif event == 'controls_playpause':
+    elif event == 'controls_pause':
         print('Play/Pause button clicked.')
     elif event == 'controls_next':
         print('Next button clicked.')
-    elif event == 'controls_stop':
-        STOPPED = True
-        print('Stop button clicked.')
     elif event == 'controls_speed_slider':
         set_speed(values['controls_speed_slider'])
         
