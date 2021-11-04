@@ -1,7 +1,7 @@
-import PySimpleGUI as sg        # Gui wrapper library for tkinter
-import time                     # Needed for speed setting
-import collections              # Using collections.deque() as a stack & queue datastructure for BFS/DFS algorithms
-import priority_queue as pq     # Data structure used in Dijkstra's algorithm
+import PySimpleGUI as sg                    # Gui wrapper library for tkinter
+import time                                 # Needed for speed setting
+import collections                          # Using collections.deque() as a stack & queue datastructure for BFS/DFS algorithms
+from modules import priority_queue as pq    # Data structure used in Dijkstra's algorithm
 
 
 
@@ -14,7 +14,7 @@ import priority_queue as pq     # Data structure used in Dijkstra's algorithm
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '0.2.1'
+VERSION = '1.0.0'
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
 START_NODE = None               # An instance of Node. The node from which the algorithm starts.
