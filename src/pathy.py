@@ -369,6 +369,7 @@ def dijkstra() -> None:
     """Finds the solution to the maze using Dijkstra's algorithm.
     """
     interrupted = False
+    
     # Initialize an updateable priority queue with the start node in it, at priority 0
     # The 'keys' for the queue will be the coordinates for the nodes
     queue = pq.UpdateableQueue()
@@ -409,15 +410,10 @@ def dijkstra() -> None:
                 min_distance = min(neighbor.distance, current_node.distance + 1)
                 if min_distance != neighbor.distance:
                     neighbor.distance = min_distance
+                    # Change queue priority for the nieghbor since it's now closer
+                    queue.push(neighbor.loc, neighbor.distance)
                     # Set the current node as the parent node for each neighbor
                     neighbor.parent = current_node
-                    # Change queue priority for the nieghbor since it's now closer
-                    if queue.has(neighbor.loc):
-                        queue.update(neighbor.loc, neighbor.distance)
-                
-                # Add the neighbor to the queue if it's not already in there
-                if not queue.has(neighbor.loc):
-                    queue.push(neighbor.loc, neighbor.distance)
         # Mark the current node as visited
         current_node.make_visited_node()
             
@@ -439,11 +435,6 @@ def astar() -> None:
     """Finds the solution to the maze using the A-star (A*) algorithm.
     """
     interrupted = False
-    # Calculate the 'manhattan distance' of each node to the END_NODE
-    for node in NODES.values():
-        # the manhattan distance is the total number of steps it takes to get from one node to another
-        # it's multiplied by two to reinforce the heuristic
-        node.end_distance = (abs(END_NODE.x - node.x) + abs(END_NODE.y - node.y)) * 2
     
     # Initialize an updateable priority queue with the start node in it, at priority 0
     # The 'keys' for the queue will be the coordinates for the nodes
@@ -481,20 +472,12 @@ def astar() -> None:
                 # Mark that neighbor as visited, and color it blue
                 neighbor.make_neighbor_node()
                 window.refresh()
-                
-                # Calculate priority
-                neighbor.start_distance = min(neighbor.start_distance, current_node.start_distance + 1)
-                min_distance = min(neighbor.distance, neighbor.start_distance + neighbor.end_distance)
-                if min_distance != neighbor.distance:
-                    neighbor.distance = min_distance
-                    neighbor.parent = current_node
-                
-                # Update neighbor priority
-                if queue.has(neighbor.loc):
-                    queue.update(neighbor.loc, min_distance)
-                    
-                if not queue.has(neighbor.loc):
-                    queue.push(neighbor.loc, neighbor.distance)
+                # Set distance to be the manhattan distance from the neighbor to the end node
+                neighbor.distance = (abs(END_NODE.x - neighbor.x) + abs(END_NODE.y - neighbor.y))
+                # Update the queue with the new distance. queue.push() adds a new entry, or updates an existing one
+                queue.push(neighbor.loc, neighbor.distance)
+                # Establish parent node
+                neighbor.parent = current_node
                 
         # Mark the current node as visited
         current_node.make_visited_node()
@@ -771,8 +754,8 @@ class Node(object):
         
         self.parent = None                  # parent node for backtracking and highlighting maze solution
         self.distance = float('inf')        # generic distance attribute of the node (used in dijkstra and astar algorithms)
-        self.start_distance = float('inf')  # distance of the node from the start node (used in astar algorithm)
-        self.end_distance = float('inf')    # distance of the node from the end node (used in astar algorithm)
+        #self.start_distance = float('inf')  # distance of the node from the start node (used in astar algorithm)
+        #self.end_distance = float('inf')    # distance of the node from the end node (used in astar algorithm)
         
         # Draw the node on the graph and store the drawn figure in the id attribute
         self.id = maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
