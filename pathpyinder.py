@@ -1,5 +1,6 @@
 import PySimpleGUI as sg                    # Gui wrapper library for tkinter
 import time                                 # Needed for speed setting
+import random                               # Used in maze generation
 import collections                          # Using collections.deque() as a stack & queue datastructure for BFS/DFS algorithms
 from modules import priority_queue as pq    # Data structure used in Dijkstra's algorithm
 
@@ -14,7 +15,10 @@ from modules import priority_queue as pq    # Data structure used in Dijkstra's 
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.2.1'
+VERSION = '1.2.3'
+
+MAZE_WIDTH = 50                 # Right-most boundary for the maze
+MAZE_HEIGHT = 50                # Bottom-most boundary for the maze
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
 START_NODE = None               # An instance of Node. The node from which the algorithm starts.
@@ -94,16 +98,6 @@ def set_draw_mode(draw_mode: str) -> None:
     window['maze_tools_'+draw_mode].update(button_color='white on grey')
     window['maze_tools_'+draw_mode].Widget.configure(relief='sunken')
     print(f"Draw mode set to '{draw_mode}'")
-    
-
-def maze_tooltip() -> str:
-    """Returns the tooltip for the maze."""
-    return 'Tooltip'
-
-
-def maze_right_click_menu() -> list:
-    """The menu that will open when a maze node is right clicked."""
-    return ['',['Coordinates', 'Item2']]
 
 
 def bring_start_and_end_nodes_to_front():
@@ -112,6 +106,7 @@ def bring_start_and_end_nodes_to_front():
         window['maze'].bring_figure_to_front(START_NODE.id)
     if END_NODE:
         window['maze'].bring_figure_to_front(END_NODE.id)
+
 
 def reset() -> None:
     """Clears the solution from the maze and sets all nodes' `is_visited`, and `is_active` flags to `False` via the `Node.reset()` method."""
@@ -249,8 +244,18 @@ def disable_algo_radios() -> None:
     """Disables the algorithm selection radios."""
     for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_dijkstra', 'radio_algo_astar']:
         disable_element(radio)
-    
-    
+
+
+
+"""
+   ###    ##        ######    #######     #### ##    ## ########  ##     ## ########
+  ## ##   ##       ##    ##  ##     ##     ##  ###   ## ##     ## ##     ##    ##
+ ##   ##  ##       ##        ##     ##     ##  ####  ## ##     ## ##     ##    ##
+##     ## ##       ##   #### ##     ##     ##  ## ## ## ########  ##     ##    ##
+######### ##       ##    ##  ##     ##     ##  ##  #### ##        ##     ##    ##
+##     ## ##       ##    ##  ##     ##     ##  ##   ### ##        ##     ##    ##
+##     ## ########  ######    #######     #### ##    ## ##         #######     ##
+"""
 def read_algo_controls(timeout=None) -> bool:
     """Reads inputs from the control panel while the algorithm is running.
     Returns `True` to continue running. Returns `False` to break out of the algorithm loop."""
@@ -667,6 +672,96 @@ def save_maze_file(filename: str) -> bool:
             
     print(f'Save maze to: {filename}')
     
+    
+    
+"""
+ ######   ######## ##    ## ######## ########     ###    ######## ########    ##     ##    ###    ######## ########
+##    ##  ##       ###   ## ##       ##     ##   ## ##      ##    ##          ###   ###   ## ##        ##  ##
+##        ##       ####  ## ##       ##     ##  ##   ##     ##    ##          #### ####  ##   ##      ##   ##
+##   #### ######   ## ## ## ######   ########  ##     ##    ##    ######      ## ### ## ##     ##    ##    ######
+##    ##  ##       ##  #### ##       ##   ##   #########    ##    ##          ##     ## #########   ##     ##
+##    ##  ##       ##   ### ##       ##    ##  ##     ##    ##    ##          ##     ## ##     ##  ##      ##
+ ######   ######## ##    ## ######## ##     ## ##     ##    ##    ########    ##     ## ##     ## ######## ########
+"""
+def generate_maze() -> None:
+    """Generates a new maze via depth-first search algorithm, starting at a random point in the maze."""
+    print('Generate Maze')
+    
+    
+    def pick_maze_generator_starting_point() -> tuple:
+        """Picks and returns a starting point for the maze generator."""
+        # List of permissible starting points for the x and y coordinates
+        coords = [x for x in range(1,49,2)]
+        return (random.choice(coords), random.choice(coords))
+    
+    
+    def connect_nodes(current_node, old_node) -> None:
+        """Draws a path between two nodes."""
+        x_diff = current_node.loc[0] - old_node.loc[0]
+        y_diff = current_node.loc[1] - old_node.loc[1]
+        if x_diff == -2:
+            NODES[(current_node.loc[0]+1, current_node.loc[1])].make_empty_node()
+        elif x_diff == 2:
+            NODES[(current_node.loc[0]-1, current_node.loc[1])].make_empty_node()
+        elif y_diff == -2:
+            NODES[(current_node.loc[0], current_node.loc[1]+1)].make_empty_node()
+        elif y_diff == 2:
+            NODES[(current_node.loc[0], current_node.loc[1]-1)].make_empty_node()
+        
+        
+    # Clears out the existing maze
+    for node in NODES.values():
+        node.make_wall_node()
+    # Set a start node and end node.
+    NODES[(1,0)].make_start_node()
+    NODES[(MAZE_WIDTH-1, MAZE_HEIGHT)].make_end_node()
+    
+    # Initialize stack
+    stack = [] # collections.deque([])
+    stack.append(NODES[pick_maze_generator_starting_point()])
+    
+    # Tracks what the previous node was
+    old_node = None
+    
+    # As long as there's a node in the stack
+    while stack:
+        # Use the last node in the stack
+        current_node = stack[len(stack)-1]
+        # Connect the current node and old node with a path
+        if old_node:
+            connect_nodes(old_node, current_node)
+        window.refresh()
+        current_node.make_empty_node()
+        window.refresh()
+        
+        # Store the current node
+        old_node = current_node
+        
+        # Get the potential directions to go in
+        directions = current_node.get_potential_paths()
+        
+        # If there's nowhere for the current node to go, remove it from the stack and restart the loop
+        if not directions:
+            stack.pop()
+            continue
+        
+        # Choose a random direction to go in
+        direction = random.choice(directions)
+        
+        # Append the node one farther than the chosen node to the stack
+        x_diff = current_node.loc[0] - direction.loc[0]
+        y_diff = current_node.loc[1] - direction.loc[1]
+        if x_diff == -1: # x coordinate difference of -1 means append the right node
+            stack.append(NODES[(current_node.loc[0]+2, current_node.loc[1])])
+        elif x_diff == 1: # append left node
+            stack.append(NODES[(current_node.loc[0]-2, current_node.loc[1])])
+        elif y_diff == -1: # append bottom node
+            stack.append(NODES[(current_node.loc[0], current_node.loc[1]+2)])
+        elif y_diff == 1: # append top node
+            stack.append(NODES[(current_node.loc[0], current_node.loc[1]-2)])
+    
+    bring_start_and_end_nodes_to_front()
+
 
 
 """
@@ -681,7 +776,7 @@ def save_maze_file(filename: str) -> bool:
 sg.theme('SystemDefaultForReal')
 
 menu = [['File', ['Open Maze', 'Save Maze', 'Exit']], 
-        ['About', ['Runtime Info']],]
+        ['Tools', ['Runtime Info', 'Generate Maze']],]
 
 layout_algo_radios = [
     [sg.Radio(group_id='algo', key='radio_algo_bfs', enable_events=True, text='Breadth First Search', default=True)],
@@ -723,13 +818,12 @@ layout_controls = [
 layout = [
     [sg.Menu(menu, key="main_menu", background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
     [sg.Graph(key="maze", # Might want to use a table instead
-              canvas_size=(500, 500),
-              graph_bottom_left=(0,500),
-              graph_top_right=(500,0),
+              canvas_size=((MAZE_WIDTH+1)*10, (MAZE_HEIGHT+1)*10),
+              graph_bottom_left=(0, (MAZE_HEIGHT+1)*10),
+              graph_top_right=((MAZE_WIDTH+1)*10, 0),
               background_color="#ff0000",
               drag_submits=True,
-              enable_events=True,
-              right_click_menu=maze_right_click_menu())
+              enable_events=True)
     ],
     [
         [sg.Frame('Algorithm', layout_algo_radios, expand_y=True, expand_x=True),
@@ -811,20 +905,44 @@ class Node(object):
         # print(f'Node {self.x}, {self.y} color updated to {color}.')
     
 
-    def get_neighbors(self) -> None:
+    def get_neighbors(self) -> list:
         """Returns a list of nodes for in-bound, accessible neighbor nodes that have not been visited. 
         Neighbor nodes are nodes that are above, below, left, or right of the node this method was called on."""
         neighbors = []  
         if self.y != 0:
             neighbors.append(NODES[(self.x, self.y-1)]) # top
-        if self.x != 49:
+        if self.x != MAZE_WIDTH:
             neighbors.append(NODES[(self.x+1, self.y)]) # right
-        if self.y != 49:
+        if self.y != MAZE_HEIGHT:
             neighbors.append(NODES[(self.x, self.y+1)]) # bottom
         if self.x != 0:
             neighbors.append(NODES[(self.x-1, self.y)]) # left
         # Prune neighbors list to remove visited nodes and wall nodes
         return [node for node in neighbors if not node.is_wall and not node.is_visited]
+    
+    
+    def get_potential_paths(self) -> list:
+        """Returns a list of nodes that can be emptied during maze generation. Viable node requirements:
+            Node direction + 1 must not be on the edge of the maze.
+            Node direction + 1 must not already be an empty node."""
+        # Immediate neighbor nodes
+        neighbors = [
+            NODES[(self.loc[0], self.loc[1]+1)],  # top
+            NODES[(self.loc[0]+1, self.loc[1])],  # right
+            NODES[(self.loc[0], self.loc[1]-1)],  # bottom
+            NODES[(self.loc[0]-1, self.loc[1])],  # left
+            ]
+        # Look ahead one node in that direction and check for edges or paths
+        if self.loc[1]+2 >= MAZE_HEIGHT or NODES[(self.loc[0], self.loc[1]+2)].is_empty:
+            neighbors[0] = False
+        if self.loc[0]+2 >= MAZE_WIDTH or NODES[(self.loc[0]+2, self.loc[1])].is_empty:
+            neighbors[1] = False
+        if self.loc[1]-2 <= 0 or NODES[(self.loc[0], self.loc[1]-2)].is_empty:
+            neighbors[2] = False
+        if self.loc[0]-2 <= 0 or NODES[(self.loc[0]-2, self.loc[1])].is_empty:
+            neighbors[3] = False
+        
+        return [neighbor for neighbor in neighbors if neighbor]
     
 
     def make_start_node(self) -> None:
@@ -942,8 +1060,8 @@ class Node(object):
 #### ##    ## ####    ##
 """
 # Create an empty node grid to initialize all nodes
-for x in range(50):
-    for y in range(50):
+for x in range(MAZE_WIDTH + 1):
+    for y in range(MAZE_HEIGHT + 1):
         init_node = Node(window['maze'], (x,y))
 
 # Load settings
@@ -951,7 +1069,7 @@ def load_settings():
     # Read settings file
     with open(f'settings.txt') as settings:
         lines = settings.readlines()
-        maze = lines[0].rstrip()
+        maze = None # lines[0].rstrip()
         algo = lines[1].rstrip()
         speed = lines[2].rstrip()
         
@@ -1003,7 +1121,7 @@ while True:
             # get a floor division of the graph coordinates to get a node location
             loc = (values['maze'][0] // 10, values['maze'][1] // 10)
             # make sure node location is in-bounds
-            if -1 < loc[0] < 50 and -1 < loc[1] < 50:
+            if -1 < loc[0] < MAZE_WIDTH+1 and -1 < loc[1] < MAZE_HEIGHT+1:
                 # set the current working node
                 clicked_node = NODES[loc]
                 # if the location is out of bounds, pass
@@ -1060,6 +1178,8 @@ while True:
         save_maze_file(sg.filedialog.asksaveasfile(filetypes=[('Text Document', '*.txt')], defaultextension=[('Text Document', '*.txt')]))
     elif event == 'Runtime Info':
         sg.popup_scrolled(sg.get_versions())
+    elif event == 'Generate Maze':
+        generate_maze()
     
     # Log window event and values
     print("Event: \t", event)
