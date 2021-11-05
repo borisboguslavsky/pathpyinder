@@ -1,0 +1,19 @@
+# Visual Studio Code
+/workspace.code-workspace
+/.vscode
+
+# Reference URLs & PySimpleGUI Demos
+/reference/*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python Caches & Linting Options
+/.pylintrc
+/modules/__pycache__

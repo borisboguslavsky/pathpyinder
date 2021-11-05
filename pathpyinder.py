@@ -14,7 +14,7 @@ from modules import priority_queue as pq    # Data structure used in Dijkstra's 
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.0.0'
+VERSION = '1.2.0'
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
 START_NODE = None               # An instance of Node. The node from which the algorithm starts.
@@ -719,7 +719,7 @@ layout = [
 ]
 
 # Create the Window
-window = sg.Window(f'PathyPy {VERSION}', layout)
+window = sg.Window(f'PathyPyinder {VERSION}', layout)
 window.Finalize()
 
 
