@@ -6,6 +6,9 @@
 /reference/*
 /notes.txt
 
+# Outdated files
+mazes/old/*
+
 # OS generated files
 .DS_Store
 .DS_Store?

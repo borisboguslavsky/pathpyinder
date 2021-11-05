@@ -1,5 +1,5 @@
 # PathPyinder
-PathPyinder is a pathfinding algorithm visualizer written in Python. Currently supported algorithms are Breadth-First Search, Depth-First Search, Dijkstra's Algorithm, and the A* (A Star) Algorithm.
+PathPyinder is a pathfinding algorithm visualizer written in Python. Currently supported algorithms are Breadth-First Search, Depth-First Search, and the A* (A Star) Algorithm.
 
 
 ## Requirements
@@ -14,10 +14,10 @@ Navigate to the root directory via terminal and launch PathPyinder with: `python
 ![PathPyinder GUI](assets/pathpyinder_gui.png "PathPyinder GUI")
 
 ### **Drawing Mazes:**
-PathPyinder is interactive, so you can draw your own mazes. There are four types of maze nodes that can be drawn: **Wall**, **Path**, **Start**, **End**. Select which node to draw by clicking the buttons in the *Draw* frame of the GUI, and clicking or dragging somewhere in the maze. You can clear out a maze using the **Clear Maze** button at the bottom left of the interface.
+PathPyinder is interactive, so you can draw your own mazes. There are four types of maze nodes that can be drawn: **Wall**, **Path**, **Start**, **End**. Select which node to draw by clicking the buttons in the *Draw* frame of the GUI, and clicking or dragging somewhere in the maze. You can clear out a maze using the **Clear Maze** button at the bottom left of the interface. You can also fill up the entire grid with wall nodes using **Tools > Fill Maze**.
 
 ### **Selecting an Algorithm:**
-Use the radio buttons in the 'Algorithm' frame to select which algorithm will be used to solve the maze. Keep in mind that Dijkstra's algorithm will look the same as the Breadth-First Search algorithm because all nodes are equally accessible from their neighbor nodes. Dijkstra's algorithm would be more visually discernable from breadth-first search if some nodes were harder to cross than others, and the access priority for those nodes could be set accordingly.
+Use the radio buttons in the 'Algorithm' frame to select which algorithm will be used to solve the maze. Dijkstra's algorithm was originally available as well, but since each node is equally acessible from every other node, the prioritization of routes that Dijkstra's algorithm provides never mattered, and it ended up looking just like Breadth-First Search.
 
 ### **Solving Mazes:**
 Click the **Solve** button in the *Controls* frame of the GUI to start solving the maze. Keep in mind, a start node and end node have to exist for PathPyinder to attempt solving. You can adjust the speed that the algorithm iterates by using the speed slider. You can also pause the algorithm entirely iterate through it one step at a time using the **Pause** and **Play** buttons under the **Solve** button.
@@ -38,7 +38,6 @@ You can change some options that PathPyinder initializes with by editing `settin
 * **Line 2:** The algorithm that will be selected by default: Valid values are:
   * `bfs`
   * `dfs`
-  * `dijkstra`
   * `astar`
 * **Line 3:** The default speed at which the algorithm will run. Valid values are:
   * `1`

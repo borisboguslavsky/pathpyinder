@@ -15,10 +15,11 @@ from modules import priority_queue as pq    # Data structure used in Dijkstra's 
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.3.0'
+VERSION = '1.4.0'
 
-MAZE_WIDTH = 51                 # Number of nodes wide the maze is
-MAZE_HEIGHT = 35                # Number of nodes tall the maze is
+MAZE_WIDTH = 71                 # Number of nodes wide the maze is. Odd numbers work best.
+MAZE_HEIGHT = 35                # Number of nodes tall the maze is. Odd numbers work best.
+NODE_SIZE = 10                  # Size of a maze node. Even numbers work best.
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
 NODE_VALS = []                  # Raw list of nodes without used instead of calling NODES.values()
@@ -613,7 +614,7 @@ def open_maze_file(filename: str) -> bool:
                 height = len(new_maze.readlines())+1 # add one since the previous line was read to establish width
             
             # resize the graph
-            # TODO: resize_maze(width, height)
+            MAZE.resize_maze(width, height)
             
             with open(f'{filename}', 'r', encoding='utf8') as new_maze:
                 x = 0 # x coordinate
@@ -718,9 +719,8 @@ def generate_maze() -> None:
             NODES[(current_node.loc[0], current_node.loc[1]-1)].make_empty_node()
         
         
-    # Clears out the existing maze
-    for node in NODES.values():
-        node.make_wall_node()
+    # Populates existing maze with wall nodes
+    MAZE.fill_maze()
     # Set a start node
     NODES[(1,0)].make_start_node()
     # Set an end node
@@ -730,6 +730,9 @@ def generate_maze() -> None:
         NODES[(MAZE_WIDTH-3, MAZE_HEIGHT-1)].make_end_node()
     else:
         NODES[(MAZE_WIDTH-2, MAZE_HEIGHT-1)].make_end_node()
+    # Make sure a path to the end node exists
+    if MAZE_HEIGHT % 2 == 0:
+        NODES[(END_NODE.loc[0], END_NODE.loc[1]-1)].make_empty_node()
     
     # Initialize stack
     stack = [] # collections.deque([])
@@ -776,6 +779,54 @@ def generate_maze() -> None:
             stack.append(NODES[(current_node.loc[0], current_node.loc[1]-2)])
     
     bring_start_and_end_nodes_to_front()
+    
+    
+    
+"""
+##     ##    ###    ######## ########     ######  ##          ###     ######   ######
+###   ###   ## ##        ##  ##          ##    ## ##         ## ##   ##    ## ##    ##
+#### ####  ##   ##      ##   ##          ##       ##        ##   ##  ##       ##
+## ### ## ##     ##    ##    ######      ##       ##       ##     ##  ######   ######
+##     ## #########   ##     ##          ##       ##       #########       ##       ##
+##     ## ##     ##  ##      ##          ##    ## ##       ##     ## ##    ## ##    ##
+##     ## ##     ## ######## ########     ######  ######## ##     ##  ######   ######
+"""
+class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
+    """Extension of the sg.Graph class."""
+    def resize_maze(self, nodes_across, nodes_down, node_size=NODE_SIZE) -> None:
+        """Resizes the maze"""
+        global MAZE
+        global MAZE_WIDTH
+        global MAZE_HEIGHT
+        global NODE_SIZE
+        global NODES
+        MAZE_WIDTH = nodes_across
+        MAZE_HEIGHT = nodes_down
+        NODE_SIZE = node_size
+        print(f"Resize maze to: {nodes_across} nodes across, {nodes_down} nodes down, with a node size of {node_size}")
+        
+        # Delete all figures
+        for node in NODES.values():
+            window['maze'].delete_figure(node.id)
+        # Empty NODES dictionary
+        NODES.clear()
+        
+        # Create a new graph
+        MAZE.change_coordinates(graph_bottom_left=(0, MAZE_HEIGHT*NODE_SIZE), 
+                                graph_top_right=(MAZE_WIDTH*NODE_SIZE, 0))
+        MAZE.set_size(size=(MAZE_WIDTH*NODE_SIZE, MAZE_HEIGHT*NODE_SIZE))
+        
+        # Initialize new nodes
+        for x in range(MAZE_WIDTH):
+            for y in range(MAZE_HEIGHT):
+                init_node = Node(window['maze'], (x,y))
+        
+        # Refresh the UI
+        window.refresh()
+        
+    def fill_maze(self) -> None:
+        for node in NODES.values():
+            node.make_wall_node()
 
 
 
@@ -791,8 +842,14 @@ def generate_maze() -> None:
 sg.theme('SystemDefaultForReal')
 
 menu = [['File', ['Open Maze', 'Save Maze', 'Exit']], 
-        ['Tools', ['Runtime Info', 'Generate Maze']],]
-
+        ['Tools', ['Runtime Info', 'Generate Maze', 'Resize Maze', 'Fill Maze']],]
+MAZE = Maze(key="maze",
+            canvas_size=(MAZE_WIDTH*NODE_SIZE, MAZE_HEIGHT*NODE_SIZE), 
+            graph_bottom_left=(0, MAZE_HEIGHT*NODE_SIZE), 
+            graph_top_right=(MAZE_WIDTH*NODE_SIZE, 0), 
+            background_color="#ff0000", 
+            drag_submits=True, 
+            enable_events=True)
 layout_algo_radios = [
     [sg.Radio(group_id='algo', key='radio_algo_bfs', enable_events=True, text='Breadth First Search', default=True)],
     [sg.Radio(group_id='algo', key='radio_algo_dfs', enable_events=True, text='Depth First Search')],
@@ -832,14 +889,7 @@ layout_controls = [
 ]
 layout = [
     [sg.Menu(menu, key="main_menu", background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
-    [sg.Graph(key="maze", # Might want to use a table instead
-              canvas_size=((MAZE_WIDTH)*10, (MAZE_HEIGHT)*10),
-              graph_bottom_left=(0, (MAZE_HEIGHT)*10),
-              graph_top_right=((MAZE_WIDTH)*10, 0),
-              background_color="#ff0000",
-              drag_submits=True,
-              enable_events=True)
-    ],
+    [MAZE],
     [
         [sg.Frame('Algorithm', layout_algo_radios, expand_y=True, expand_x=True),
         sg.Frame('Draw', layout_maze_tools, expand_y=True, expand_x=True), 
@@ -891,8 +941,8 @@ class Node(object):
         #self.end_distance = float('inf')    # distance of the node from the end node (used in astar algorithm)
         
         # Draw the node on the graph and store the drawn figure in the id attribute
-        self.id = maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
-                                      bottom_right=(self.x*10+10, self.y*10+10),
+        self.id = maze.draw_rectangle(top_left=(self.x*NODE_SIZE, self.y*NODE_SIZE), 
+                                      bottom_right=(self.x*NODE_SIZE+NODE_SIZE, self.y*NODE_SIZE+NODE_SIZE),
                                       fill_color=colors['empty'],
                                       line_color='#fff',
                                       line_width=1)
@@ -912,8 +962,8 @@ class Node(object):
             `border_width` (int: Optional): Width of the border in pixels.
         """
         self.maze.delete_figure(self.id)
-        self.id = self.maze.draw_rectangle(top_left=(self.x*10, self.y*10), 
-                                           bottom_right=(self.x*10+10, self.y*10+10),
+        self.id = self.maze.draw_rectangle(top_left=(self.x*NODE_SIZE, self.y*NODE_SIZE), 
+                                           bottom_right=(self.x*NODE_SIZE+NODE_SIZE, self.y*NODE_SIZE+NODE_SIZE),
                                            fill_color=color,
                                            line_color=border_color,
                                            line_width=border_width)
@@ -1138,7 +1188,7 @@ while True:
             pass
         else:
             # get a floor division of the graph coordinates to get a node location
-            loc = (values['maze'][0] // 10, values['maze'][1] // 10)
+            loc = (values['maze'][0] // NODE_SIZE, values['maze'][1] // NODE_SIZE)
             # make sure node location is in-bounds
             if -1 < loc[0] < MAZE_WIDTH+1 and -1 < loc[1] < MAZE_HEIGHT+1:
                 # set the current working node
@@ -1199,6 +1249,10 @@ while True:
         sg.popup_scrolled(sg.get_versions())
     elif event == 'Generate Maze':
         generate_maze()
+    elif event == 'Resize Maze':
+        MAZE.resize_maze(101, 71, 10)
+    elif event == 'Fill Maze':
+        MAZE.fill_maze()
     
     # Log window event and values
     print("Event: \t", event)
