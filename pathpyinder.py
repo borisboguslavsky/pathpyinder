@@ -15,12 +15,13 @@ from modules import priority_queue as pq    # Data structure used in Dijkstra's 
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.2.3'
+VERSION = '1.3.0'
 
-MAZE_WIDTH = 50                 # Right-most boundary for the maze
-MAZE_HEIGHT = 50                # Bottom-most boundary for the maze
+MAZE_WIDTH = 51                 # Number of nodes wide the maze is
+MAZE_HEIGHT = 35                # Number of nodes tall the maze is
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
+NODE_VALS = []                  # Raw list of nodes without used instead of calling NODES.values()
 START_NODE = None               # An instance of Node. The node from which the algorithm starts.
 END_NODE = None                 # An instance of Node. The node at which the maze is 'solved'.
 
@@ -30,8 +31,7 @@ TEMP_DELAY = None               # Temporary variable to store original DELAY whi
 DELAY = 0                       # Delay (in seconds) for every iteration of the algorithm loop
 SPEED = None                    # Speed level (1-5) displayed above the speed slider, loaded on initialization
 
-STOPPED = False
-PAUSED = False
+PAUSED = False                  # Flag for if the algorithm is paused mid-solve
 
 colors = {                      # Dictionary of colors to use in Node.style()
     'empty': '#CCCCCC',         # Grey
@@ -46,6 +46,7 @@ colors = {                      # Dictionary of colors to use in Node.style()
     'visited': '#999966',       # Olive
     'neighbor': '#96E8FF',      # Light Blue
     'solution': '#009900',      # Dark Green
+    'error': '#FF6D70',         # Light red
     
     'black': '000000',
     'white': 'FFFFFF',
@@ -236,13 +237,13 @@ def disable_drawing_tools() -> None:
 
 def enable_algo_radios() -> None:
     """Enables the algorithm selection radios."""
-    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_dijkstra', 'radio_algo_astar']:
+    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_astar']: # 'radio_algo_dijkstra', 
         enable_element(radio)
 
 
 def disable_algo_radios() -> None:
     """Disables the algorithm selection radios."""
-    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_dijkstra', 'radio_algo_astar']:
+    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_astar']: # 'radio_algo_dijkstra', 
         disable_element(radio)
 
 
@@ -553,15 +554,26 @@ def solve_maze() -> None:
 
 def highlight_solution(current_node):
     """Walks back all the parents from the current node and highlights them green."""
-    
-    while current_node.parent is not None:
-        if current_node.is_start_node == True:
-            break
-        current_node.make_solution_node()
-        current_node = current_node.parent
-        window.refresh()
+    # If the last node is not the solution node, highlight everything red
+    unsolvable_maze = False
+    if not current_node.is_end_node:
+        unsolvable_maze = True
+        for node in [node for node in NODES.values() if node.is_visited]:
+            node.make_error_node()
+    # Trace the path backwards via node.parent and highlight it green
+    if not unsolvable_maze:
+        while current_node.parent is not None:
+            if current_node.is_start_node == True:
+                break
+            current_node.make_solution_node()
+            current_node = current_node.parent
+            window.refresh()
+            
     START_NODE.make_start_node()
     END_NODE.make_end_node()
+    
+    if unsolvable_maze:
+        sg.popup('Maze could not be solved.')
 
 """
  #######  ########  ######## ##    ##    ##     ##    ###    ######## ########
@@ -576,10 +588,10 @@ def open_maze_file(filename: str) -> bool:
     """Loads a maze from a txt file. File should be formatted as a .txt file with 50 rows and 99 columns. 
     Each row should contain 50 integers separated by a space, with each integer ranging from 0-3. The last character of each row should not have a space after it.
     Integer values represent nodes types:
-    0: Path node
-    1: Wall node
-    2: Start node
-    3: End node
+    `'█'`: Path node
+    `' '`: Wall node
+    `'S'`: Start node
+    `'E'`: End node
     """
     
     # TODO: parse maze file and make sure it's valid
@@ -595,37 +607,33 @@ def open_maze_file(filename: str) -> bool:
             # clear out the existing maze
             clear()
             
-            # create a list of lists representing the new maze
-            parsed_maze = []
-            with open(f'{filename}') as new_maze:
-                # for every line in the txt file
+            # get the width and height of the new maze
+            with open(f'{filename}', 'r', encoding='utf8') as new_maze:
+                width = len(new_maze.readline())-1   # subtract one since the newline character at the end doesn't count
+                height = len(new_maze.readlines())+1 # add one since the previous line was read to establish width
+            
+            # resize the graph
+            # TODO: resize_maze(width, height)
+            
+            with open(f'{filename}', 'r', encoding='utf8') as new_maze:
+                x = 0 # x coordinate
+                y = 0 # y coordinate
                 for line in new_maze.readlines():
-                    # create an integer list representing that row and append it to the maze object
-                    parsed_maze.append([int(x) for x in line.split(' ')])
-                    
-            # convert nodes according to the list
-            x = 0
-            y = 0
-            for row in parsed_maze:
-                for col in row:
-                    if col == 0:
-                        NODES[(x,y)].make_empty_node()
-                    elif col == 1:
-                        NODES[(x,y)].make_wall_node()
-                    elif col == 2:
-                        NODES[(x,y)].make_start_node()
-                    elif col == 3:
-                        NODES[(x,y)].make_end_node()
-                        
-                    # reset the x coordinate after rows are finished
-                    if x < 49:
-                        x += 1
-                    else: 
-                        x = 0
-                y += 1
+                    for char in line:
+                        if char == ' ':
+                            NODES[(x,y)].make_empty_node()
+                        elif char == '█':
+                            NODES[(x,y)].make_wall_node()
+                        elif char == 'S':
+                            NODES[(x,y)].make_start_node()
+                        elif char == 'E':
+                            NODES[(x,y)].make_end_node()
+                        # reset the x coordinate at the end of each line
+                        x = x+1 if x < width else 0
+                    y += 1
             bring_start_and_end_nodes_to_front()
         except:
-            sg.popup('Error loading maze')
+            sg.popup('Error loading maze.')
 
 
 
@@ -645,29 +653,29 @@ def save_maze_file(filename: str) -> bool:
     """Saves the maze to a file."""
     # list that stores the maze
     maze_to_write = []
-    for col in range(50):
+    for col in range(MAZE_HEIGHT):
         row_list = []
-        for row in range(50):
+        for row in range(MAZE_WIDTH):
             if NODES[(row, col)].is_start_node:
-                row_list.append('2 ')
+                row_list.append('S')
             elif NODES[(row, col)].is_end_node:
-                row_list.append('3 ')
+                row_list.append('E')
             elif NODES[(row, col)].is_empty:
-                row_list.append('0 ')
+                row_list.append(' ')
             elif NODES[(row, col)].is_wall:
-                row_list.append('1 ')
+                row_list.append('█')
         maze_to_write.append(row_list)
     
     # remove trailing space from the last node in each row
     for row in maze_to_write:
-        row[49] = row[49][0]
+        row[MAZE_WIDTH-1] = row[MAZE_WIDTH-1][0]
         
     # write maze_to_write to a file
-    with open(f'{filename.name}', 'w') as file_to_write:
-        for row in range(50):
+    with open(f'{filename.name}', 'w', encoding="utf-8") as file_to_write:
+        for row in range(MAZE_HEIGHT):
             file_to_write.writelines(maze_to_write[row])
             # write a new line at the end of each row, but not at the end of the last line
-            if row != 49:
+            if row != MAZE_HEIGHT-1:
                 file_to_write.write('\n')
             
     print(f'Save maze to: {filename}')
@@ -691,8 +699,9 @@ def generate_maze() -> None:
     def pick_maze_generator_starting_point() -> tuple:
         """Picks and returns a starting point for the maze generator."""
         # List of permissible starting points for the x and y coordinates
-        coords = [x for x in range(1,49,2)]
-        return (random.choice(coords), random.choice(coords))
+        coords_x = [x for x in range(1, MAZE_WIDTH-1, 2)]
+        coords_y = [x for x in range(1, MAZE_HEIGHT-1, 2)]
+        return (random.choice(coords_x), random.choice(coords_y))
     
     
     def connect_nodes(current_node, old_node) -> None:
@@ -712,9 +721,15 @@ def generate_maze() -> None:
     # Clears out the existing maze
     for node in NODES.values():
         node.make_wall_node()
-    # Set a start node and end node.
+    # Set a start node
     NODES[(1,0)].make_start_node()
-    NODES[(MAZE_WIDTH-1, MAZE_HEIGHT)].make_end_node()
+    # Set an end node
+    if MAZE_WIDTH % 2 == 0: # If the maze width is an even number
+        # The last two columns of nodes will be walls, 
+        # so the end node has to be two nodes away from the rightmost edge
+        NODES[(MAZE_WIDTH-3, MAZE_HEIGHT-1)].make_end_node()
+    else:
+        NODES[(MAZE_WIDTH-2, MAZE_HEIGHT-1)].make_end_node()
     
     # Initialize stack
     stack = [] # collections.deque([])
@@ -738,7 +753,7 @@ def generate_maze() -> None:
         old_node = current_node
         
         # Get the potential directions to go in
-        directions = current_node.get_potential_paths()
+        directions = current_node.get_directions_to_dig()
         
         # If there's nowhere for the current node to go, remove it from the stack and restart the loop
         if not directions:
@@ -781,8 +796,8 @@ menu = [['File', ['Open Maze', 'Save Maze', 'Exit']],
 layout_algo_radios = [
     [sg.Radio(group_id='algo', key='radio_algo_bfs', enable_events=True, text='Breadth First Search', default=True)],
     [sg.Radio(group_id='algo', key='radio_algo_dfs', enable_events=True, text='Depth First Search')],
-    [sg.Radio(group_id='algo', key='radio_algo_dijkstra', enable_events=True, text='Dijkstra')],
-    [sg.Radio(group_id='algo', key='radio_algo_astar', enable_events=True, text='A*')],
+    #[sg.Radio(group_id='algo', key='radio_algo_dijkstra', enable_events=True, text='Dijkstra')],
+    [sg.Radio(group_id='algo', key='radio_algo_astar', enable_events=True, text='A* (A Star)')],
 ]
 layout_maze_tools = [
     [
@@ -818,9 +833,9 @@ layout_controls = [
 layout = [
     [sg.Menu(menu, key="main_menu", background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
     [sg.Graph(key="maze", # Might want to use a table instead
-              canvas_size=((MAZE_WIDTH+1)*10, (MAZE_HEIGHT+1)*10),
-              graph_bottom_left=(0, (MAZE_HEIGHT+1)*10),
-              graph_top_right=((MAZE_WIDTH+1)*10, 0),
+              canvas_size=((MAZE_WIDTH)*10, (MAZE_HEIGHT)*10),
+              graph_bottom_left=(0, (MAZE_HEIGHT)*10),
+              graph_top_right=((MAZE_WIDTH)*10, 0),
               background_color="#ff0000",
               drag_submits=True,
               enable_events=True)
@@ -911,9 +926,9 @@ class Node(object):
         neighbors = []  
         if self.y != 0:
             neighbors.append(NODES[(self.x, self.y-1)]) # top
-        if self.x != MAZE_WIDTH:
+        if self.x != MAZE_WIDTH-1: # subtract 1 because location indexes start at 0
             neighbors.append(NODES[(self.x+1, self.y)]) # right
-        if self.y != MAZE_HEIGHT:
+        if self.y != MAZE_HEIGHT-1: # subtract 1 because location indexes start at 0
             neighbors.append(NODES[(self.x, self.y+1)]) # bottom
         if self.x != 0:
             neighbors.append(NODES[(self.x-1, self.y)]) # left
@@ -921,7 +936,7 @@ class Node(object):
         return [node for node in neighbors if not node.is_wall and not node.is_visited]
     
     
-    def get_potential_paths(self) -> list:
+    def get_directions_to_dig(self) -> list:
         """Returns a list of nodes that can be emptied during maze generation. Viable node requirements:
             Node direction + 1 must not be on the edge of the maze.
             Node direction + 1 must not already be an empty node."""
@@ -933,13 +948,13 @@ class Node(object):
             NODES[(self.loc[0]-1, self.loc[1])],  # left
             ]
         # Look ahead one node in that direction and check for edges or paths
-        if self.loc[1]+2 >= MAZE_HEIGHT or NODES[(self.loc[0], self.loc[1]+2)].is_empty:
+        if self.loc[1]+2 > MAZE_HEIGHT-2 or NODES[(self.loc[0], self.loc[1]+2)].is_empty:
             neighbors[0] = False
-        if self.loc[0]+2 >= MAZE_WIDTH or NODES[(self.loc[0]+2, self.loc[1])].is_empty:
+        if self.loc[0]+2 > MAZE_WIDTH-2 or NODES[(self.loc[0]+2, self.loc[1])].is_empty:
             neighbors[1] = False
-        if self.loc[1]-2 <= 0 or NODES[(self.loc[0], self.loc[1]-2)].is_empty:
+        if self.loc[1]-2 < 1 or NODES[(self.loc[0], self.loc[1]-2)].is_empty:
             neighbors[2] = False
-        if self.loc[0]-2 <= 0 or NODES[(self.loc[0]-2, self.loc[1])].is_empty:
+        if self.loc[0]-2 < 1 or NODES[(self.loc[0]-2, self.loc[1])].is_empty:
             neighbors[3] = False
         
         return [neighbor for neighbor in neighbors if neighbor]
@@ -1032,6 +1047,10 @@ class Node(object):
         """Styles a node as part of the solution path."""
         self.style(colors['solution'], colors['solution'])
 
+    def make_error_node(self) -> None:
+        """Styles a node red to indicate an unsovable maze."""
+        self.style(colors['error'])
+
 
     def reset_node(self):
         """Resets a node (removes visited, and active flags, and returns original style.)"""
@@ -1060,8 +1079,8 @@ class Node(object):
 #### ##    ## ####    ##
 """
 # Create an empty node grid to initialize all nodes
-for x in range(MAZE_WIDTH + 1):
-    for y in range(MAZE_HEIGHT + 1):
+for x in range(MAZE_WIDTH):
+    for y in range(MAZE_HEIGHT):
         init_node = Node(window['maze'], (x,y))
 
 # Load settings
