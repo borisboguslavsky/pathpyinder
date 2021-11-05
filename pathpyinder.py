@@ -14,7 +14,7 @@ from modules import priority_queue as pq    # Data structure used in Dijkstra's 
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
 START_NODE = None               # An instance of Node. The node from which the algorithm starts.
@@ -184,7 +184,22 @@ def disable_element(sg_key) -> None:
 def enable_element(sg_key) -> None:
     """Enables a button."""
     window[sg_key].update(disabled=False)
+    
 
+def disable_menu(sg_key) -> None:
+    """Disables the menu."""
+    for item in menu:
+        item[0] = '!' + item[0]
+    window[sg_key].update(menu_definition=menu)
+
+
+def enable_menu(sg_key) -> None:
+    """Enables the menu."""
+    for item in menu:
+        if item[0][0] == '!':
+            item[0] = item[0][1:]
+    window[sg_key].update(menu_definition=menu)
+            
 
 def raise_button(sg_key, colors=('#000', '#f0f0f0')) -> None:
     """
@@ -257,7 +272,6 @@ def read_algo_controls(timeout=None) -> bool:
             raise_button('controls_pause')
         elif not PAUSED:
             recess_button('controls_pause', 'white on grey')
-            
         # Toggle the PAUSED boolean
         PAUSED = not PAUSED
         if PAUSED:
@@ -500,14 +514,17 @@ def solve_maze() -> None:
     """Solves the current maze using the selected algorithm."""
     # Check to make sure there's a start and end node
     if START_NODE and END_NODE:
-        # 
-        enable_element('controls_pause')
+        # Disable UI elements that can't be used while solving
+        #disable_menu('main_menu') # TODO: click on disabled menu while solving triggers event
         disable_element('controls_solve')
-        recess_button('controls_solve')
         disable_drawing_tools()
         disable_algo_radios()
+        # Enable UI elements that can only be used while solving
+        enable_element('controls_pause')
+        recess_button('controls_solve')
         
         print('*'*40 + f'\nSolve started via {ALGO.upper()} algorithm.\n' + '*'*40)
+        
         # Run algorithm
         if ALGO == 'bfs' or ALGO == 'dfs':
             bfs_dfs()
@@ -515,6 +532,15 @@ def solve_maze() -> None:
             dijkstra()
         elif ALGO == 'astar':
             astar()
+            
+        # Disable elements that can't be used while not solving
+        disable_element('controls_pause')
+        raise_button('controls_pause')
+        disable_element('controls_next')
+        
+        # Enable elements that can only be used while not solving
+        #enable_menu('main_menu') # TODO: click on disabled menu while solving triggers event
+        
     # Show a popup message if there's not both a start and end node
     else:
         sg.popup('The maze needs a start and and end node for a solvable maze.', 'Set these nodes using the "Start Node" and "End Node" buttons in the maze tools section.')
@@ -522,9 +548,7 @@ def solve_maze() -> None:
 
 def highlight_solution(current_node):
     """Walks back all the parents from the current node and highlights them green."""
-    disable_element('controls_pause')
-    raise_button('controls_pause')
-    disable_element('controls_next')
+    
     while current_node.parent is not None:
         if current_node.is_start_node == True:
             break
@@ -697,7 +721,7 @@ layout_controls = [
     ]
 ]
 layout = [
-    [sg.Menu(menu, background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
+    [sg.Menu(menu, key="main_menu", background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
     [sg.Graph(key="maze", # Might want to use a table instead
               canvas_size=(500, 500),
               graph_bottom_left=(0,500),
@@ -719,7 +743,7 @@ layout = [
 ]
 
 # Create the Window
-window = sg.Window(f'PathyPyinder {VERSION}', layout)
+window = sg.Window(f'PathyPyinder {VERSION}', layout, icon='assets/icon.ico')
 window.Finalize()
 
 

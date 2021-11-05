@@ -1,3 +1,3 @@
-mazes/maze_astartest.txt
+mazes/maze_4.txt
 astar
 4
