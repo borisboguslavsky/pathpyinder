@@ -1,3 +1,3 @@
-mazes/maze_empty.txt
+None
 astar
 5

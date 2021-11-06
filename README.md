@@ -28,18 +28,21 @@ Click the **Reset** button at any time to stop solving, and reset the current ma
 Click the **Clear** button to stop solving, and erase the entire maze to an empty grid.
 
 ### **Saving and Loading Mazes:**
-Save and load mazes via **File > Save Maze** and **File > Open Maze** in the menu bar. Mazes are saved as .txt files. There is a mazes directory that includes some pre-built mazes.
+Save and load mazes via **File > Save Maze** and **File > Open Maze** in the menu bar. Mazes are saved as .txt files. There is a `/mazes` directory that includes some pre-built mazes.
 
 
 ## Default Settings
 You can change some options that PathPyinder initializes with by editing `settings.txt`. This file has three lines in it, which correspond to:
-* **Line 1:** The maze to load on startup. Values are formatted as:
-  * `mazes/maze_filename.txt`
+* **Line 1:** The maze to load on startup. 
+Valid values are:
+  * `~/user/desktop/full_filepath_to_maze.txt` -> Will load a maze file from the given filepath.
+  * `mazes/maze_filename.txt` -> Will load the maze from the relative filepath. Terminal must be in PathPyinder's root directory for this to work.
+  * `None` -> Will load an empty grid on startup with default dimensions.
 * **Line 2:** The algorithm that will be selected by default: Valid values are:
-  * `bfs`
-  * `dfs`
-  * `astar`
-* **Line 3:** The default speed at which the algorithm will run. Valid values are:
+  * `bfs` -> Start with Breadth-First Search algorithm selected.
+  * `dfs` -> Start with Depth-First Search algorithm selected.
+  * `astar` -> Start with the A* algorithm selected.
+* **Line 3:** The default speed at which the algorithm will run. These correspond to the speed slider. Valid values are:
   * `1`
   * `2`
   * `3`

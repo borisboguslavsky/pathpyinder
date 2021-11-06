@@ -15,10 +15,10 @@ from modules import priority_queue as pq    # Data structure used in Dijkstra's 
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.4.0'
+VERSION = '1.5.0'
 
-MAZE_WIDTH = 71                 # Number of nodes wide the maze is. Odd numbers work best.
-MAZE_HEIGHT = 35                # Number of nodes tall the maze is. Odd numbers work best.
+MAZE_WIDTH = 51                 # Number of nodes wide the maze is. Odd numbers work best.
+MAZE_HEIGHT = 51                # Number of nodes tall the maze is. Odd numbers work best.
 NODE_SIZE = 10                  # Size of a maze node. Even numbers work best.
 
 NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
@@ -597,7 +597,7 @@ def open_maze_file(filename: str) -> bool:
     
     # TODO: parse maze file and make sure it's valid
     def valid_maze_file(filename: str):
-        if filename:
+        if filename and filename != 'None':
             return True
         else:
             return False
@@ -831,13 +831,13 @@ class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
 
 
 """
-##     ## ####
-##     ##  ##
-##     ##  ##
-##     ##  ##
-##     ##  ##
-##     ##  ##
- #######  ####
+##     ## ####     ######  ######## ######## ##     ## ########
+##     ##  ##     ##    ## ##          ##    ##     ## ##     ##
+##     ##  ##     ##       ##          ##    ##     ## ##     ##
+##     ##  ##      ######  ######      ##    ##     ## ########
+##     ##  ##           ## ##          ##    ##     ## ##
+##     ##  ##     ##    ## ##          ##    ##     ## ##
+ #######  ####     ######  ########    ##     #######  ##
 """
 sg.theme('SystemDefaultForReal')
 
@@ -1138,7 +1138,7 @@ def load_settings():
     # Read settings file
     with open(f'settings.txt') as settings:
         lines = settings.readlines()
-        maze = None # lines[0].rstrip()
+        maze = lines[0].rstrip()
         algo = lines[1].rstrip()
         speed = lines[2].rstrip()
         
