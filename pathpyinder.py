@@ -17,7 +17,7 @@ from modules import priority_queue as pq                # Data structure used in
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.6.0'
+VERSION = '1.6.1'
 
 MAZE_WIDTH = 51                 # Number of nodes wide the maze is. Odd numbers work best.
 MAZE_HEIGHT = 51                # Number of nodes tall the maze is. Odd numbers work best.
@@ -53,14 +53,13 @@ COLORS = {                      # Dictionary of colors to use in Node.style()
     'white': 'FFFFFF',
 }
 
-DEFAULT_SETTINGS = {                # settings to load if no settings file is found
+DEFAULT_SETTINGS = {
     "default_maze": "None",
-    "default_algorithm": "astar",
-    "default_speed": 5,
+    "default_algorithm": "Breadth-First Search",
+    "default_speed": 4,
     "maze_width": 51,
     "maze_height": 51,
-    "node_size": 10,
-    "draw_mode": "wall"
+    "node_size": 10
 }
 
 
@@ -803,22 +802,50 @@ def generate_maze() -> None:
 """
 def read_settings():
     """Reads settings from settings.cfg, or DEFAULT_SETTINGS if settings.cfg is not found."""
-    current_saved_settings = None
+    # Try loading settings.cfg from pathypyinder.py's directory
     try:
         with open(path.join(path.dirname(__file__), 'settings.cfg'), 'r') as settings_file:
             current_saved_settings = jsonload(settings_file)
+    # If it doesn't work, show a pop saying there was no setting file found and
+    # write settings.cfg file to that directory with the default settings
     except Exception as e:
-        sg.popup_quick_message(f'exception {e}', 'No settings file found... ', keep_on_top=True)
-        # save_settings(current_saved_settings, DEFAULT_SETTINGS, None)
+        settings_file_path = path.join(path.dirname(__file__), 'settings.cfg')
+        sg.popup_quick_message(f'Exception {e}:\n', 'No settings file found... Writing new file to:\n', f'{settings_file_path}', keep_on_top=True)
+        with open(settings_file_path, 'w') as settings_file:
+            jsondump(DEFAULT_SETTINGS, settings_file, indent=4)
+        current_saved_settings = DEFAULT_SETTINGS
     return current_saved_settings
 
 
-def save_settings(settings, defaults):
+def save_settings(settings):
     """Saves user inputted settings to settings.cfg"""
-    if not settings:
-        settings = defaults
+    # Reference dictionary that links the settings dict passed to the function to valid settings keys
+    settings_dict = {
+        # The passed settings parameter will have the below keys:
+        "default_settings_default_maze": "default_maze",
+        "default_settings_default_algorithm": "default_algorithm",
+        "default_settings_default_speed": "default_speed",
+        "default_settings_maze_width": "maze_width",
+        "default_settings_maze_height": "maze_height",
+        "default_settings_maze_node_size": "node_size"
+    }
+    # Populate a new settings dictionary
+    parsed_settings = {}
+    # For every setting in settings
+    for setting in settings:
+        # If that setting is a key in settings_dict
+        if setting in settings_dict:
+            # If that setting has a value
+            if settings[setting]:
+                # Add it to parsed_settings
+                parsed_settings[settings_dict[setting]] = settings[setting]
+            else:
+                # Otherwise, add that setting to parsed_settings from the default settings global variable
+                parsed_settings[settings_dict[setting]] = DEFAULT_SETTINGS[settings_dict[setting]]
+    
+    # Write the settings in pathypinder.py's directory to settings.cfg
     with open(path.join(path.dirname(__file__), 'settings.cfg'), 'w') as settings_file:
-        jsondump(settings, settings_file)
+        jsondump(parsed_settings, settings_file, indent=4)
         
         
 def apply_settings(settings_file, defaults):
@@ -839,8 +866,6 @@ def apply_settings(settings_file, defaults):
     set_speed(final_settings["default_speed"])
     # Set algorithm
     set_algo(final_settings["default_algorithm"])
-    # Set draw mode
-    set_draw_mode(final_settings["draw_mode"])
     # Open maze
     if final_settings["default_maze"] != "None":
         open_maze_file(final_settings["default_maze"])
@@ -1129,6 +1154,10 @@ def create_settings_window(folder_path):
     sg.theme('SystemDefaultForReal')
     settings = read_settings()
 
+    # Valid values for maze and node dimensions
+    valid_maze_dims = tuple(range(2,201))
+    valid_node_dims = tuple(range(5,31,5))
+    
     col_1 = [
         [sg.Text('Default Maze:')],
         [sg.Text('Algorithm:')],
@@ -1139,13 +1168,13 @@ def create_settings_window(folder_path):
         # Default Maze
         [sg.Input(key='default_settings_default_maze', default_text=settings['default_maze']), sg.FileBrowse(file_types=[('Text Document', '*.txt')], initial_folder=folder_path)],
         # Default Algorithm
-        [sg.Combo(key='default_settings_default_algorithm', default_value=settings['default_algorithm'], values=['Breadth-First Search', 'Depth-First Search', 'A* (A Star)'], size=(20, 20), readonly=True)],
+        [sg.Combo(key='default_settings_default_algorithm', default_value=settings['default_algorithm'], values=['Breadth-First Search', 'Depth-First Search', 'A* (A Star)'], size=20, readonly=True)],
         # Default Speed
-        [sg.Spin(key='default_settings_default_speed', initial_value=settings['default_speed'], values=(list(range(200))), size=(5,1))],
+        [sg.Combo(key='default_settings_default_speed', default_value=settings['default_speed'], values=[1,2,3,4,5], size=4, readonly=True)],
         # Maze Dimensions
-        [sg.Spin(key='default_settings_maze_width', initial_value=settings['maze_width'], values=(list(range(200))), size=(5,1)), sg.Text('Maze Height:'), 
-         sg.Spin(key='default_settings_maze_height', initial_value=settings['maze_height'], values=(list(range(200))), size=(5,1)), sg.Text('Node Size:'), 
-         sg.Spin(key='default_settings_maze_node_size', initial_value=settings['node_size'], values=(list(range(200))), size=(5,1))],
+        [sg.Spin(key='default_settings_maze_width', initial_value=settings['maze_width'], values=(valid_maze_dims), size=(5,1), expand_x=True), sg.Text('Maze Height:'), 
+         sg.Spin(key='default_settings_maze_height', initial_value=settings['maze_height'], values=(valid_maze_dims), size=(5,1), expand_x=True), sg.Text('Node Size:'), 
+         sg.Spin(key='default_settings_maze_node_size', initial_value=settings['node_size'], values=(valid_node_dims), size=(5,1), expand_x=True, readonly=True)],
     ]
     settings_layout = [
         [sg.Column(col_1), sg.Column(col_2)],
@@ -1286,6 +1315,7 @@ window = create_main_window()
 # Loads settings from settings.cfg from pathypyinder.py's directory
 # Resorts to loading from default_settings if settings.cfg fails to load
 apply_settings(path.join(path.dirname(__file__), 'settings.cfg'), DEFAULT_SETTINGS)
+set_draw_mode('wall')
 
 
 
@@ -1388,7 +1418,7 @@ while True:
         settings_window = create_settings_window(path.join(path.dirname(__file__)))
         event, values = settings_window.read(close=True)
         if event == 'Save':
-            print("Save Settings")
+            save_settings(values)
         elif event in ('Close', sg.WIN_CLOSED):
             settings_window.close()
             
