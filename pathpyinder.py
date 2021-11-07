@@ -24,7 +24,7 @@ from os import path
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.6.2'
+VERSION = '1.6.3'
 
 # Maze dimensions
 MAZE_WIDTH = 51
@@ -40,6 +40,10 @@ MODE = 'wall'                   # None, 'wall', 'path', 'start', 'end'
 TEMP_DELAY = None               # Temporary variable to store original DELAY
 DELAY = 0                       # Delay (in milliseconds)
 SPEED = None
+
+LOOP_COUNT = 0
+LOOP_CHECK = 0
+
 PAUSED = False
 
 COLORS = {                      # Dictionary of colors to use in Node.style()
@@ -180,30 +184,31 @@ def set_speed(speed: float) -> None:
     """Sets a delay (in milliseconds) between each algorithm iteration"""
     global DELAY
     global TEMP_DELAY
+    global LOOP_CHECK
     global SPEED
     SPEED = int(speed)
     window['controls_speed_label'].update(value=f'Speed: {SPEED}')
     if SPEED == 1:
         DELAY = 1500
         TEMP_DELAY = 1500
+        LOOP_CHECK = -1
     elif SPEED == 2:
         DELAY = 750
         TEMP_DELAY = 750
+        LOOP_CHECK = -1
     elif SPEED == 3:
         DELAY = 250
         TEMP_DELAY = 250
+        LOOP_CHECK = -1
     elif SPEED == 4:
         DELAY = 50
         TEMP_DELAY = 50
+        LOOP_CHECK = -1
     elif SPEED == 5:
         DELAY = 0
         TEMP_DELAY = 0
+        LOOP_CHECK = 10
     print(f'Delay set to: {DELAY}ms.')
-
-
-def wait(t) -> None:
-    """Waits for t seconds."""
-    sleep(t)
     
     
 def disable_element(sg_key) -> None:
@@ -292,13 +297,13 @@ def disable_algo_radios() -> None:
 def read_algo_controls(timeout=None) -> bool:
     """
     Reads inputs from the control panel while the algorithm is running.
-    Returns `True` to continue running. 
-    Returns `False` to break out of the algorithm loop.
+    Returns `False` to continue running. 
+    Returns `True` to break out of the algorithm loop.
     """
     event, values = window.read(timeout)
     # Break out of the function if it's just a timeout event
     if event == '__TIMEOUT__':
-        return True # Keep going
+        return (False, event)
     
     global TEMP_DELAY
     global DELAY
@@ -321,32 +326,53 @@ def read_algo_controls(timeout=None) -> bool:
             return read_algo_controls(timeout=None)
         else:
             disable_element('controls_next')
-        return True
+        return (False, event)
         
     # Next Button
     elif event == 'controls_next':
         TEMP_DELAY = DELAY
         DELAY = None
-        return True
+        return (False, event)
     
     # Speed Slider
     elif event == 'controls_speed_slider':
         set_speed(values['controls_speed_slider'])
         if PAUSED:
             return read_algo_controls(timeout=None)
-        return True
+        return (False, event)
         
     # Reset/Clear Buttons
     elif event == 'maze_tools_clear':
         clear()
-        return False
+        return (True, event)
     elif event == 'maze_tools_reset':
         reset()
-        return False
+        return (True, event)
     # Log window event and values
     print("Event: \t", event)
     print("Values: ", values)
-    return True
+    return (False, event)
+
+
+def check_for_input():
+    global LOOP_COUNT
+    global LOOP_CHECK
+    if LOOP_COUNT > LOOP_CHECK:
+        interrupted, event = read_algo_controls(timeout=DELAY) 
+        if interrupted:
+            LOOP_COUNT = 0
+            return True
+        if event in ('controls_next' or 'controls_speed_slider'):
+            LOOP_COUNT = LOOP_CHECK+1
+        else:
+            LOOP_COUNT = 0
+    else:
+        LOOP_COUNT += 1
+        # Slow algorithm down according to delay
+        sleep(DELAY/1000)
+    window.refresh()
+    return False
+
 
 """
 ########  ########  ######       ####       ########  ########  ######
@@ -364,6 +390,8 @@ def bfs_dfs() -> None:
     Breadth-first uses a queue (first in, first out).
     Depth first uses a stack (last in, first out).
     """
+    global LOOP_COUNT
+    global LOOP_CHECK
     interrupted = False
     # use a stack suitable for both bfs and dfs, 
     # allowing for both lifo and fifo operations
@@ -377,10 +405,10 @@ def bfs_dfs() -> None:
         current_node = stack.pop()
         current_node.make_active_node()
         
-        # Check for user input.
-        # Break out of the loop if read_algo_controls() returns False
-        if not read_algo_controls(timeout=DELAY): 
-            interrupted = True
+        # Checks for and processes user input 
+        # every LOOP_CHECK iterations of this loop
+        interrupted = check_for_input()
+        if interrupted:
             break
         
         # flag the current node as active
@@ -444,10 +472,10 @@ def dijkstra() -> None:
         current_node.make_active_node()
         window.refresh()
         
-        # Check for user input.
-        # Break out of the loop if read_algo_controls() returns False
-        if not read_algo_controls(timeout=DELAY): 
-            interrupted = True
+        # Checks for and processes user input 
+        # every LOOP_CHECK iterations of this loop
+        interrupted = check_for_input()
+        if interrupted:
             break
         
         # Get all valid neighbor nodes of that node
@@ -509,10 +537,10 @@ def astar() -> None:
         current_node.make_active_node()
         window.refresh()
         
-        # Check for user input.
-        # Break out of the loop if read_algo_controls() returns False
-        if not read_algo_controls(timeout=DELAY): 
-            interrupted = True
+        # Checks for and processes user input 
+        # every LOOP_CHECK iterations of this loop
+        interrupted = check_for_input()
+        if interrupted:
             break
         
         # Get all valid neighbor nodes of that node
