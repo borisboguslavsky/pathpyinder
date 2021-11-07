@@ -1,10 +1,17 @@
-import PySimpleGUI as sg                                # Gui wrapper library for tkinter
-from time import sleep                                  # Used to slow down pathfinding algos
-from random import choice as random_choice              # Used in maze generation
-from collections import deque                           # Using deque([]) as a stack & queue datastructure for BFS/DFS algorithms
-from json import (load as jsonload, dump as jsondump)   # Used to read settings.cfg
-from os import path                                     # Read files from path
-from modules import priority_queue as pq                # Data structure used in A* algorithm
+# Gui wrapper library for tkinter
+from modules import PySimpleGUI as sg
+# Data structure used in A* algorithm
+from modules import priority_queue as pq
+# Data structure used as a queue/stack for BFS/DFS algorithms
+from collections import deque
+# Used to slow down pathfinding algos
+from time import sleep
+# Used in maze generation
+from random import choice as random_choice
+# Used to read and write settings.cfg
+from json import (load as jsonload, dump as jsondump)
+# Used to read and write settings.cfg
+from os import path
 
 
 
@@ -17,38 +24,36 @@ from modules import priority_queue as pq                # Data structure used in
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.6.1'
+VERSION = '1.6.2'
 
-MAZE_WIDTH = 51                 # Number of nodes wide the maze is. Odd numbers work best.
-MAZE_HEIGHT = 51                # Number of nodes tall the maze is. Odd numbers work best.
-NODE_SIZE = 10                  # Size of a maze node. Even numbers work best.
+# Maze dimensions
+MAZE_WIDTH = 51
+MAZE_HEIGHT = 51
+NODE_SIZE = 10
 
-NODES = {}                      # Node grid in a dictionary with (x,y) tuples as keys
-START_NODE = None               # An instance of Node. The node from which the algorithm starts.
-END_NODE = None                 # An instance of Node. The node at which the maze is 'solved'.
+NODES = {}         # Node grid in a dictionary with (x,y) tuples as keys
+START_NODE = None  # Instance of Node. The node from which the algorithm starts
+END_NODE = None    # Instance of Node. The node at which the maze is 'solved'
 
-ALGO = 'Breadth-First Search'                    # Pathfinding algorithm to use.
-MODE = 'wall'                   # Grid draw mode -> can be set to None, 'wall', 'path', 'start', or 'end'
-TEMP_DELAY = None               # Temporary variable to store original DELAY while DELAY is overwritten with None for one loop iteration (used for next button)
-DELAY = 0                       # Delay (in milliseconds) for every iteration of the algorithm loop
-SPEED = None                    # Speed level (1-5) displayed above the speed slider, loaded on initialization
-PAUSED = False                  # Flag for if the algorithm is paused mid-solve
+ALGO = 'Breadth-First Search'   # Pathfinding algorithm to use.
+MODE = 'wall'                   # None, 'wall', 'path', 'start', 'end'
+TEMP_DELAY = None               # Temporary variable to store original DELAY
+DELAY = 0                       # Delay (in milliseconds)
+SPEED = None
+PAUSED = False
 
 COLORS = {                      # Dictionary of colors to use in Node.style()
     'empty': '#CCCCCC',         # Grey
     'wall': '#003333',          # Black
-
     'start': '#00CC00',         # Green
     'start_border': '#006000',  # Dark Green
     'end': '#FF3366',           # Red
     'end_border': '#890F1F',    # Dark Red
-
     'active': '#EFC700',        # Yellow
     'visited': '#999966',       # Olive
     'neighbor': '#96E8FF',      # Light Blue
     'solution': '#009900',      # Dark Green
     'error': '#FF6D70',         # Light red
-    
     'black': '000000',
     'white': 'FFFFFF',
 }
@@ -65,16 +70,25 @@ DEFAULT_SETTINGS = {
 
 
 """
-##     ## ####       ##     ## ######## ##       ########  ######## ########   ######
-##     ##  ##        ##     ## ##       ##       ##     ## ##       ##     ## ##    ##
-##     ##  ##        ##     ## ##       ##       ##     ## ##       ##     ## ##
-##     ##  ##        ######### ######   ##       ########  ######   ########   ######
-##     ##  ##        ##     ## ##       ##       ##        ##       ##   ##         ##
-##     ##  ##        ##     ## ##       ##       ##        ##       ##    ##  ##    ##
- #######  ####       ##     ## ######## ######## ##        ######## ##     ##  ######
+##     ## ####
+##     ##  ##
+##     ##  ##
+##     ##  ##
+##     ##  ##
+##     ##  ##
+ #######  ####
+ 
+##     ## ######## ##       ########  ######## ########   ######
+##     ## ##       ##       ##     ## ##       ##     ## ##    ##
+##     ## ##       ##       ##     ## ##       ##     ## ##
+######### ######   ##       ########  ######   ########   ######
+##     ## ##       ##       ##        ##       ##   ##         ##
+##     ## ##       ##       ##        ##       ##    ##  ##    ##
+##     ## ######## ######## ##        ######## ##     ##  ######
 """
 def set_algo(new_algo: str) -> None:
-    """Establishes which algorithm to use for the pathfinder. Valid values for `new_algo` are: 
+    """Establishes which algorithm to use for the pathfinder. 
+    Valid values for `new_algo` are: 
     `'Breadth-First Search'`: Breadth-first
     `'Depth-First Search'`: Depth-first
     `'Dijkstra'`: Dijkstra
@@ -88,8 +102,9 @@ def set_algo(new_algo: str) -> None:
         'Dijkstra': 'dijkstra',
         'A* (A Star)': 'astar',
     }
-    # select the appropriate radio
+    # Select the appropriate radio
     window[f'radio_algo_{algo_ref[new_algo]}'].update(value=True)
+    # Print event
     print(f"Algorithm set to {algo_ref[new_algo].upper()}")
     
     
@@ -103,7 +118,7 @@ def set_draw_mode(draw_mode: str) -> None:
     global MODE
     global window
     MODE = draw_mode
-    # Depress all draw mode buttons and press the current one
+    # Depress all draw mode buttons
     window['maze_tools_wall'].update(button_color=('#000', '#f0f0f0'))
     window['maze_tools_wall'].Widget.configure(relief='raised')
     window['maze_tools_path'].update(button_color=('#000', '#f0f0f0'))
@@ -112,8 +127,10 @@ def set_draw_mode(draw_mode: str) -> None:
     window['maze_tools_start'].Widget.configure(relief='raised')
     window['maze_tools_end'].update(button_color=('#000', '#f0f0f0'))
     window['maze_tools_end'].Widget.configure(relief='raised')
+    # Press the selected draw mode button
     window['maze_tools_'+draw_mode].update(button_color='white on grey')
     window['maze_tools_'+draw_mode].Widget.configure(relief='sunken')
+    # Print event
     print(f"Draw mode set to '{draw_mode}'")
 
 
@@ -126,7 +143,10 @@ def bring_start_and_end_nodes_to_front():
 
 
 def reset() -> None:
-    """Clears the solution from the maze and sets all nodes' `is_visited`, and `is_active` flags to `False` via the `Node.reset()` method."""
+    """Clears the solution from the maze and sets all nodes' `is_visited`, 
+    and `is_active` flags to `False` via the `Node.reset()` method."""
+    global PAUSED
+    PAUSED = False
     for node in NODES.values():
         node.reset_node()
     bring_start_and_end_nodes_to_front()
@@ -134,8 +154,6 @@ def reset() -> None:
     disable_element('controls_next')
     enable_drawing_tools()
     enable_algo_radios()
-    global PAUSED
-    PAUSED = False
     raise_button('controls_pause')
     enable_element('controls_solve')
     raise_button('controls_solve')
@@ -205,7 +223,7 @@ def raise_button(sg_key, colors=('#000', '#f0f0f0')) -> None:
     
     Args:
         `sg_key` (str): The PySimpleGUI Key for the button
-        `button_color` (tuple or str): Two colors for the button text, and background, respectively.
+        `button_color` (tuple or str): Colors for the button text and background
             Example: 'white on grey', ('#000', '#f0f0f0')
     """
     window[sg_key].update(button_color=colors)
@@ -218,7 +236,7 @@ def recess_button(sg_key, colors=('#000', '#f0f0f0')) -> None:
     
     Args:
         `sg_key` (str): The PySimpleGUI Key for the button
-        `button_color` (tuple or str): Two colors for the button text, and background, respectively.
+        `button_color` (tuple or str): Colors for the button text and background
             Example: 'white on grey', ('#000', '#f0f0f0')
     """
     window[sg_key].update(button_color=colors)
@@ -226,42 +244,57 @@ def recess_button(sg_key, colors=('#000', '#f0f0f0')) -> None:
     
     
 def enable_drawing_tools() -> None:
-    """Enables the `wall`, `path`, `start, and `end` buttons in the UI and sets the draw mode to 'wall'."""
-    for button in ['maze_tools_wall', 'maze_tools_path', 'maze_tools_start', 'maze_tools_end']: 
+    """Enables the `wall`, `path`, `start, and `end` buttons in the UI and sets 
+    the draw mode to 'wall'."""
+    for button in ['maze_tools_wall', 'maze_tools_path', 
+                   'maze_tools_start', 'maze_tools_end']: 
         enable_element(button)
     
     
 def disable_drawing_tools() -> None:
-    """Disables the `wall`, `path`, `start, and `end` buttons in the UI and sets the draw mode to `None`."""
-    for button in ['maze_tools_wall', 'maze_tools_path', 'maze_tools_start', 'maze_tools_end']: 
+    """Disables the `wall`, `path`, `start, and `end` buttons in the UI and sets
+    the draw mode to `None`."""
+    for button in ['maze_tools_wall', 'maze_tools_path', 
+                   'maze_tools_start', 'maze_tools_end']: 
         window[button].update(disabled=True, button_color=('#000', '#f0f0f0'))
 
 
 def enable_algo_radios() -> None:
     """Enables the algorithm selection radios."""
-    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_astar']: # 'radio_algo_dijkstra', 
+    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_astar']:
         enable_element(radio)
 
 
 def disable_algo_radios() -> None:
     """Disables the algorithm selection radios."""
-    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_astar']: # 'radio_algo_dijkstra', 
+    for radio in ['radio_algo_bfs', 'radio_algo_dfs', 'radio_algo_astar']:
         disable_element(radio)
 
 
 
 """
-   ###    ##        ######    #######     #### ##    ## ########  ##     ## ########
-  ## ##   ##       ##    ##  ##     ##     ##  ###   ## ##     ## ##     ##    ##
- ##   ##  ##       ##        ##     ##     ##  ####  ## ##     ## ##     ##    ##
-##     ## ##       ##   #### ##     ##     ##  ## ## ## ########  ##     ##    ##
-######### ##       ##    ##  ##     ##     ##  ##  #### ##        ##     ##    ##
-##     ## ##       ##    ##  ##     ##     ##  ##   ### ##        ##     ##    ##
-##     ## ########  ######    #######     #### ##    ## ##         #######     ##
+   ###    ##        ######    ####### 
+  ## ##   ##       ##    ##  ##     ##
+ ##   ##  ##       ##        ##     ##
+##     ## ##       ##   #### ##     ##
+######### ##       ##    ##  ##     ##
+##     ## ##       ##    ##  ##     ##
+##     ## ########  ######    ####### 
+
+#### ##    ## ########  ##     ## ########
+ ##  ###   ## ##     ## ##     ##    ##
+ ##  ####  ## ##     ## ##     ##    ##
+ ##  ## ## ## ########  ##     ##    ##
+ ##  ##  #### ##        ##     ##    ##
+ ##  ##   ### ##        ##     ##    ##
+#### ##    ## ##         #######     ##
 """
 def read_algo_controls(timeout=None) -> bool:
-    """Reads inputs from the control panel while the algorithm is running.
-    Returns `True` to continue running. Returns `False` to break out of the algorithm loop."""
+    """
+    Reads inputs from the control panel while the algorithm is running.
+    Returns `True` to continue running. 
+    Returns `False` to break out of the algorithm loop.
+    """
     event, values = window.read(timeout)
     # Break out of the function if it's just a timeout event
     if event == '__TIMEOUT__':
@@ -325,13 +358,15 @@ def read_algo_controls(timeout=None) -> bool:
 ########  ##        ######      ####  ##    ########  ##        ######
 """
 def bfs_dfs() -> None:
-    """Traverses the maze using either a breadth-first or depth-first search algorithm.
+    """
+    Traverses the maze using a breadth-first or depth-first search algorithm.
     The two are the same except for the underlying data structure used. 
     Breadth-first uses a queue (first in, first out).
     Depth first uses a stack (last in, first out).
     """
     interrupted = False
-    # use a stack suitable for both bfs and dfs, allowing for both lifo and fifo operations
+    # use a stack suitable for both bfs and dfs, 
+    # allowing for both lifo and fifo operations
     stack = deque([])
     # add the starting node to the stack
     stack.append(START_NODE)
@@ -368,9 +403,9 @@ def bfs_dfs() -> None:
                 neighbor.parent = current_node
                 
                 # add the neighbor to a queue
-                if ALGO[0] == 'B': # Breadth-First, use queue: first in, first out
+                if ALGO[0] == 'B': # BFS, use queue: first in, first out
                     stack.appendleft(neighbor)
-                else: # Depth-First, use stack: last in, first out
+                else: # DFS, use stack: last in, first out
                     stack.append(neighbor)
     
     # Mark the solution path
@@ -392,7 +427,7 @@ def dijkstra() -> None:
     """
     interrupted = False
     
-    # Initialize an updateable priority queue with the start node in it, at priority 0
+    # Initialize an updateable priority queue with the start node, at priority 0
     # The 'keys' for the queue will be the coordinates for the nodes
     queue = pq.UpdateableQueue()
     queue.push(START_NODE.loc, 0)
@@ -427,12 +462,11 @@ def dijkstra() -> None:
             for neighbor in neighbors:
                 # Mark that neighbor as visited, and color it blue
                 neighbor.make_neighbor_node()
-                window.refresh()
                 # Calculate the distance of that node to the start node
                 min_distance = min(neighbor.distance, current_node.distance + 1)
                 if min_distance != neighbor.distance:
                     neighbor.distance = min_distance
-                    # Change queue priority for the nieghbor since it's now closer
+                    # Change queue priority for nieghbor since it's now closer
                     queue.push(neighbor.loc, neighbor.distance)
                     # Set the current node as the parent node for each neighbor
                     neighbor.parent = current_node
@@ -458,7 +492,7 @@ def astar() -> None:
     """
     interrupted = False
     
-    # Initialize an updateable priority queue with the start node in it, at priority 0
+    # Initialize an updateable priority queue with the start node, at priority 0
     # The 'keys' for the queue will be the coordinates for the nodes
     queue = pq.UpdateableQueue()
     queue.push(START_NODE.loc, 0)
@@ -493,10 +527,11 @@ def astar() -> None:
             for neighbor in neighbors:
                 # Mark that neighbor as visited, and color it blue
                 neighbor.make_neighbor_node()
-                window.refresh()
-                # Set distance to be the manhattan distance from the neighbor to the end node
-                neighbor.distance = (abs(END_NODE.x - neighbor.x) + abs(END_NODE.y - neighbor.y))
-                # Update the queue with the new distance. queue.push() adds a new entry, or updates an existing one
+                # Set distance to be distance from the neighbor to end node
+                neighbor.distance = (abs(END_NODE.x - neighbor.x) + 
+                                     abs(END_NODE.y - neighbor.y))
+                # Update the queue with the new distance. 
+                # queue.push() ADDS a new entry, OR UPDATES an existing one
                 queue.push(neighbor.loc, neighbor.distance)
                 # Establish parent node
                 neighbor.parent = current_node
@@ -523,7 +558,6 @@ def solve_maze() -> None:
     # Check to make sure there's a start and end node
     if START_NODE and END_NODE:
         # Disable UI elements that can't be used while solving
-        #disable_menu('main_menu') # TODO: click on disabled menu while solving triggers event
         disable_element('controls_solve')
         disable_drawing_tools()
         disable_algo_radios()
@@ -531,7 +565,9 @@ def solve_maze() -> None:
         enable_element('controls_pause')
         recess_button('controls_solve')
         
-        print('*'*40 + f'\nSolve started via {ALGO.upper()} algorithm.\n' + '*'*40)
+        print('*'*40)
+        print(f'Solve started via {ALGO.upper()} algorithm.')
+        print('*'*40)
         
         # Run algorithm
         if ALGO == 'Breadth-First Search' or ALGO == 'Depth-First Search':
@@ -545,17 +581,18 @@ def solve_maze() -> None:
         disable_element('controls_pause')
         raise_button('controls_pause')
         disable_element('controls_next')
-        
-        # Enable elements that can only be used while not solving
-        #enable_menu('main_menu') # TODO: click on disabled menu while solving triggers event
-        
+                
     # Show a popup message if there's not both a start and end node
     else:
-        sg.popup('The maze needs a start and and end node for a solvable maze.', 'Set these nodes using the "Start Node" and "End Node" buttons in the maze tools section.')
+        sg.popup('The maze needs a start and and end node for a solvable maze.', 
+                 'Set these nodes with the "Start Node" and "End Node" buttons')
 
 
 def highlight_solution(current_node):
-    """Walks back all the parents from the current node and highlights them green."""
+    """
+    Highlights the maze solution when an algorithm finishes.
+    If there is no solution, all visited nodes are highlighted red.
+    """
     # If the last node is not the solution node, highlight everything red
     unsolvable_maze = False
     if not current_node.is_end_node:
@@ -587,8 +624,7 @@ def highlight_solution(current_node):
  #######  ##        ######## ##    ##    ##     ## ##     ## ######## ########
 """
 def open_maze_file(filename: str) -> bool:
-    """Loads a maze from a txt file. File should be formatted as a .txt file with 50 rows and 99 columns. 
-    Each row should contain 50 integers separated by a space, with each integer ranging from 0-3. The last character of each row should not have a space after it.
+    """Loads a maze from a txt file. 
     Integer values represent nodes types:
     `'█'`: Path node
     `' '`: Wall node
@@ -611,12 +647,17 @@ def open_maze_file(filename: str) -> bool:
             
             # get the width and height of the new maze
             with open(f'{filename}', 'r', encoding='utf8') as new_maze:
-                width = len(new_maze.readline())-1   # subtract one since the newline character at the end doesn't count
-                height = len(new_maze.readlines())+1 # add one since the previous line was read to establish width
+                # Read the first line
+                # Subtract 1 from line length to account for newline character
+                width = len(new_maze.readline())-1  
+                # Read the total number of lines
+                # add 1 to account for last line already being read
+                height = len(new_maze.readlines())+1
             
-            # resize the graph
+            # resize the graph to accommodate new maze size
             MAZE.resize_maze(width, height)
             
+            # modify nodes based on characters read from maze file
             with open(f'{filename}', 'r', encoding='utf8') as new_maze:
                 x = 0 # x coordinate
                 y = 0 # y coordinate
@@ -636,6 +677,7 @@ def open_maze_file(filename: str) -> bool:
             bring_start_and_end_nodes_to_front()
         except:
             sg.popup('Error loading maze.')
+            clear()
 
 
 
@@ -649,10 +691,10 @@ def open_maze_file(filename: str) -> bool:
  ######  ##     ##    ###    ########    ##     ## ##     ## ######## ########
 """
 def save_maze_file(filename: str) -> bool:
+    """Saves the maze to a .txt file."""
     if not filename:
         return False
     
-    """Saves the maze to a file."""
     # list that stores the maze
     maze_to_write = []
     for col in range(MAZE_HEIGHT):
@@ -676,7 +718,8 @@ def save_maze_file(filename: str) -> bool:
     with open(f'{filename.name}', 'w', encoding="utf-8") as file_to_write:
         for row in range(MAZE_HEIGHT):
             file_to_write.writelines(maze_to_write[row])
-            # write a new line at the end of each row, but not at the end of the last line
+            # write a new line at the end of each row, 
+            # but not at the end of the last line
             if row != MAZE_HEIGHT-1:
                 file_to_write.write('\n')
             
@@ -685,16 +728,27 @@ def save_maze_file(filename: str) -> bool:
     
     
 """
- ######   ######## ##    ## ######## ########     ###    ######## ########    ##     ##    ###    ######## ########
-##    ##  ##       ###   ## ##       ##     ##   ## ##      ##    ##          ###   ###   ## ##        ##  ##
-##        ##       ####  ## ##       ##     ##  ##   ##     ##    ##          #### ####  ##   ##      ##   ##
-##   #### ######   ## ## ## ######   ########  ##     ##    ##    ######      ## ### ## ##     ##    ##    ######
-##    ##  ##       ##  #### ##       ##   ##   #########    ##    ##          ##     ## #########   ##     ##
-##    ##  ##       ##   ### ##       ##    ##  ##     ##    ##    ##          ##     ## ##     ##  ##      ##
- ######   ######## ##    ## ######## ##     ## ##     ##    ##    ########    ##     ## ##     ## ######## ########
+ ######   ######## ##    ## ######## ########     ###    ######## ########
+##    ##  ##       ###   ## ##       ##     ##   ## ##      ##    ##
+##        ##       ####  ## ##       ##     ##  ##   ##     ##    ##
+##   #### ######   ## ## ## ######   ########  ##     ##    ##    ######
+##    ##  ##       ##  #### ##       ##   ##   #########    ##    ##
+##    ##  ##       ##   ### ##       ##    ##  ##     ##    ##    ##
+ ######   ######## ##    ## ######## ##     ## ##     ##    ##    ########
+ 
+##     ##    ###    ######## ########
+###   ###   ## ##        ##  ##
+#### ####  ##   ##      ##   ##
+## ### ## ##     ##    ##    ######
+##     ## #########   ##     ##
+##     ## ##     ##  ##      ##
+##     ## ##     ## ######## ########
 """
 def generate_maze() -> None:
-    """Generates a new maze via depth-first search algorithm, starting at a random point in the maze."""
+    """
+    Generates a new maze via depth-first search algorithm, 
+    starting at a random point in the maze.
+    """
     print('Generate Maze')
     
     
@@ -708,16 +762,16 @@ def generate_maze() -> None:
     
     def connect_nodes(current_node, old_node) -> None:
         """Draws a path between two nodes."""
-        x_diff = current_node.loc[0] - old_node.loc[0]
-        y_diff = current_node.loc[1] - old_node.loc[1]
+        x_diff = current_node.x - old_node.x
+        y_diff = current_node.y - old_node.y
         if x_diff == -2:
-            NODES[(current_node.loc[0]+1, current_node.loc[1])].make_empty_node()
+            NODES[(current_node.x+1, current_node.y)].make_empty_node()
         elif x_diff == 2:
-            NODES[(current_node.loc[0]-1, current_node.loc[1])].make_empty_node()
+            NODES[(current_node.x-1, current_node.y)].make_empty_node()
         elif y_diff == -2:
-            NODES[(current_node.loc[0], current_node.loc[1]+1)].make_empty_node()
+            NODES[(current_node.x, current_node.y+1)].make_empty_node()
         elif y_diff == 2:
-            NODES[(current_node.loc[0], current_node.loc[1]-1)].make_empty_node()
+            NODES[(current_node.x, current_node.y-1)].make_empty_node()
         
         
     # Populates existing maze with wall nodes
@@ -733,7 +787,7 @@ def generate_maze() -> None:
         NODES[(MAZE_WIDTH-2, MAZE_HEIGHT-1)].make_end_node()
     # Make sure a path to the end node exists
     if MAZE_HEIGHT % 2 == 0:
-        NODES[(END_NODE.loc[0], END_NODE.loc[1]-1)].make_empty_node()
+        NODES[(END_NODE.x, END_NODE.y-1)].make_empty_node()
     
     # Initialize stack
     stack = []
@@ -749,7 +803,6 @@ def generate_maze() -> None:
         # Connect the current node and old node with a path
         if old_node:
             connect_nodes(old_node, current_node)
-        window.refresh()
         current_node.make_empty_node()
         window.refresh()
         
@@ -759,7 +812,8 @@ def generate_maze() -> None:
         # Get the potential directions to go in
         directions = current_node.get_directions_to_dig()
         
-        # If there's nowhere for the current node to go, remove it from the stack and restart the loop
+        # If there's nowhere for the current node to go, 
+        # remove it from the stack and restart the loop
         if not directions:
             stack.pop()
             continue
@@ -768,30 +822,38 @@ def generate_maze() -> None:
         direction = random_choice(directions)
         
         # Append the node one farther than the chosen node to the stack
-        x_diff = current_node.loc[0] - direction.loc[0]
-        y_diff = current_node.loc[1] - direction.loc[1]
-        if x_diff == -1: # x coordinate difference of -1 means append the right node
-            stack.append(NODES[(current_node.loc[0]+2, current_node.loc[1])])
+        x_diff = current_node.x - direction.x
+        y_diff = current_node.y - direction.y
+        if x_diff == -1: # append the right node
+            stack.append(NODES[(current_node.x+2, current_node.y)])
         elif x_diff == 1: # append left node
-            stack.append(NODES[(current_node.loc[0]-2, current_node.loc[1])])
+            stack.append(NODES[(current_node.x-2, current_node.y)])
         elif y_diff == -1: # append bottom node
-            stack.append(NODES[(current_node.loc[0], current_node.loc[1]+2)])
+            stack.append(NODES[(current_node.x, current_node.y+2)])
         elif y_diff == 1: # append top node
-            stack.append(NODES[(current_node.loc[0], current_node.loc[1]-2)])
+            stack.append(NODES[(current_node.x, current_node.y-2)])
     
     bring_start_and_end_nodes_to_front()
             
             
             
 """
- ######     ###    ##     ## ########      ####       ##        #######     ###    ########
-##    ##   ## ##   ##     ## ##           ##  ##      ##       ##     ##   ## ##   ##     ##
-##        ##   ##  ##     ## ##            ####       ##       ##     ##  ##   ##  ##     ##
- ######  ##     ## ##     ## ######       ####        ##       ##     ## ##     ## ##     ##
-      ## #########  ##   ##  ##          ##  ## ##    ##       ##     ## ######### ##     ##
-##    ## ##     ##   ## ##   ##          ##   ##      ##       ##     ## ##     ## ##     ##
- ######  ##     ##    ###    ########     ####  ##    ########  #######  ##     ## ########
+ ######     ###    ##     ## ########       ###    ##    ## ########
+##    ##   ## ##   ##     ## ##            ## ##   ###   ## ##     ##
+##        ##   ##  ##     ## ##           ##   ##  ####  ## ##     ##
+ ######  ##     ## ##     ## ######      ##     ## ## ## ## ##     ##
+      ## #########  ##   ##  ##          ######### ##  #### ##     ##
+##    ## ##     ##   ## ##   ##          ##     ## ##   ### ##     ##
+ ######  ##     ##    ###    ########    ##     ## ##    ## ########
  
+##        #######     ###    ########
+##       ##     ##   ## ##   ##     ##
+##       ##     ##  ##   ##  ##     ##
+##       ##     ## ##     ## ##     ##
+##       ##     ## ######### ##     ##
+##       ##     ## ##     ## ##     ##
+########  #######  ##     ## ########
+
  ######  ######## ######## ######## #### ##    ##  ######    ######
 ##    ## ##          ##       ##     ##  ###   ## ##    ##  ##    ##
 ##       ##          ##       ##     ##  ####  ## ##        ##
@@ -801,16 +863,22 @@ def generate_maze() -> None:
  ######  ########    ##       ##    #### ##    ##  ######    ######
 """
 def read_settings():
-    """Reads settings from settings.cfg, or DEFAULT_SETTINGS if settings.cfg is not found."""
+    """
+    Reads settings from settings.cfg, 
+    or DEFAULT_SETTINGS if settings.cfg is not found.
+    """
     # Try loading settings.cfg from pathypyinder.py's directory
+    settings_file_path = path.join(path.dirname(__file__), 'settings.cfg')
     try:
-        with open(path.join(path.dirname(__file__), 'settings.cfg'), 'r') as settings_file:
+        with open(settings_file_path, 'r') as settings_file:
             current_saved_settings = jsonload(settings_file)
-    # If it doesn't work, show a pop saying there was no setting file found and
-    # write settings.cfg file to that directory with the default settings
+    # If there's a problem, show a popup saying there was no setting file found
+    # and write settings.cfg file to that directory with the default settings
     except Exception as e:
         settings_file_path = path.join(path.dirname(__file__), 'settings.cfg')
-        sg.popup_quick_message(f'Exception {e}:\n', 'No settings file found... Writing new file to:\n', f'{settings_file_path}', keep_on_top=True)
+        sg.popup('No settings file found.',
+                 'New file automatically created at:', 
+                 f'{settings_file_path}', keep_on_top=True)
         with open(settings_file_path, 'w') as settings_file:
             jsondump(DEFAULT_SETTINGS, settings_file, indent=4)
         current_saved_settings = DEFAULT_SETTINGS
@@ -819,7 +887,8 @@ def read_settings():
 
 def save_settings(settings):
     """Saves user inputted settings to settings.cfg"""
-    # Reference dictionary that links the settings dict passed to the function to valid settings keys
+    # Reference dictionary that links the settings dict passed to the function 
+    # to valid settings keys that can be read on initialization
     settings_dict = {
         # The passed settings parameter will have the below keys:
         "default_settings_default_maze": "default_maze",
@@ -840,7 +909,8 @@ def save_settings(settings):
                 # Add it to parsed_settings
                 parsed_settings[settings_dict[setting]] = settings[setting]
             else:
-                # Otherwise, add that setting to parsed_settings from the default settings global variable
+                # Otherwise, add that setting to parsed_settings 
+                # from the default settings global variable
                 parsed_settings[settings_dict[setting]] = DEFAULT_SETTINGS[settings_dict[setting]]
     
     # Write the settings in pathypinder.py's directory to settings.cfg
@@ -857,7 +927,8 @@ def apply_settings(settings_file, defaults):
         print(read_settings)
         final_settings = read_settings
     except:
-        print(f'Could not open settings file: {settings_file}\nResorting to defaults')
+        print(f'Could not open settings file: {settings_file}',
+              '\nResorting to defaults...')
         print(defaults)
         final_settings = defaults
     
@@ -870,26 +941,36 @@ def apply_settings(settings_file, defaults):
     if final_settings["default_maze"] != "None":
         open_maze_file(final_settings["default_maze"])
     else:
-        MAZE.resize_maze(final_settings["maze_width"], final_settings["maze_height"], final_settings["node_size"])
+        MAZE.resize_maze(final_settings["maze_width"], 
+                         final_settings["maze_height"], 
+                         final_settings["node_size"])
 
 
 
 """
-##    ##  #######  ########  ########     ######  ##          ###     ######   ######
-###   ## ##     ## ##     ## ##          ##    ## ##         ## ##   ##    ## ##    ##
-####  ## ##     ## ##     ## ##          ##       ##        ##   ##  ##       ##
-## ## ## ##     ## ##     ## ######      ##       ##       ##     ##  ######   ######
-##  #### ##     ## ##     ## ##          ##       ##       #########       ##       ##
-##   ### ##     ## ##     ## ##          ##    ## ##       ##     ## ##    ## ##    ##
-##    ##  #######  ########  ########     ######  ######## ##     ##  ######   ######
+##    ##  #######  ########  ########
+###   ## ##     ## ##     ## ##
+####  ## ##     ## ##     ## ##
+## ## ## ##     ## ##     ## ######
+##  #### ##     ## ##     ## ##
+##   ### ##     ## ##     ## ##
+##    ##  #######  ########  ########
+
+ ######  ##          ###     ######   ######
+##    ## ##         ## ##   ##    ## ##    ##
+##       ##        ##   ##  ##       ##
+##       ##       ##     ##  ######   ######
+##       ##       #########       ##       ##
+##    ## ##       ##     ## ##    ## ##    ##
+ ######  ######## ##     ##  ######   ######
 """
 class Node(object):
     """
-    Creates a maze node on the window graph at (location[0], location[1]) represented as a 10x10 pixel square.
-    The graph is 500x500px, so there can be a total of 50x50 nodes in the window.
+    Creates a maze node on the window graph at `(location[0], location[1])`.
+    Nodes are represented as squares of `NODE_SIZE` pixels wide on the graph.
     """
     def __init__(self, maze: str, location: tuple) -> None:
-        self.maze = maze                    # reference to the window graph object
+        self.maze = maze                    # window graph object
         self.x = location[0]                # x coordinate    
         self.y = location[1]                # y coordinate
         self.loc = location                 # tuple of (x,y)
@@ -902,14 +983,16 @@ class Node(object):
         self.is_visited = False
         self.is_active = False
         
-        self.parent = None                  # parent node for backtracking and highlighting maze solution
-        self.distance = float('inf')        # generic distance attribute of the node (used in dijkstra and astar algorithms)
-        #self.start_distance = float('inf')  # distance of the node from the start node (used in astar algorithm)
-        #self.end_distance = float('inf')    # distance of the node from the end node (used in astar algorithm)
+        # parent node for backtracking and highlighting maze solution
+        self.parent = None
+        # distance attribute of the node (used in astar algorithm)
+        self.distance = float('inf')
         
-        # Draw the node on the graph and store the drawn figure in the id attribute
-        self.id = maze.draw_rectangle(top_left=(self.x*NODE_SIZE, self.y*NODE_SIZE), 
-                                      bottom_right=(self.x*NODE_SIZE+NODE_SIZE, self.y*NODE_SIZE+NODE_SIZE),
+        # Draw the node on the graph and store the drawn figure in the self.id
+        self.id = maze.draw_rectangle(top_left=(self.x*NODE_SIZE, 
+                                                self.y*NODE_SIZE), 
+                                      bottom_right=(self.x*NODE_SIZE+NODE_SIZE, 
+                                                    self.y*NODE_SIZE+NODE_SIZE),
                                       fill_color=COLORS['empty'],
                                       line_color='#fff',
                                       line_width=1)
@@ -924,28 +1007,36 @@ class Node(object):
         Updates a node color.
 
         Args:
-            `color` (str: Optional): Hexidecimal string of a color. E.g. `'#FFF'` or `'#2D2D2D'`
+            `color` (str: Optional): Hexidecimal string of a color. 
+                E.g. `'#FFF'` or `'#2D2D2D'`
             `border_color` (str: Optional): Hexidecimal string of a color.
             `border_width` (int: Optional): Width of the border in pixels.
         """
         self.maze.delete_figure(self.id)
-        self.id = self.maze.draw_rectangle(top_left=(self.x*NODE_SIZE, self.y*NODE_SIZE), 
-                                           bottom_right=(self.x*NODE_SIZE+NODE_SIZE, self.y*NODE_SIZE+NODE_SIZE),
-                                           fill_color=color,
-                                           line_color=border_color,
-                                           line_width=border_width)
-        # print(f'Node {self.x}, {self.y} color updated to {color}.')
+        self.id = self.maze.draw_rectangle(
+                                    top_left=(self.x*NODE_SIZE, 
+                                              self.y*NODE_SIZE), 
+                                    bottom_right=(self.x*NODE_SIZE+NODE_SIZE, 
+                                                  self.y*NODE_SIZE+NODE_SIZE),
+                                    fill_color=color,
+                                    line_color=border_color,
+                                    line_width=border_width)
     
 
     def get_neighbors(self) -> list:
-        """Returns a list of nodes for in-bound, accessible neighbor nodes that have not been visited. 
-        Neighbor nodes are nodes that are above, below, left, or right of the node this method was called on."""
+        """
+        Returns a list in-bound, accessible, non-visited neighbor nodes.
+        Neighbor nodes are nodes that are above, below, left, or right 
+        of the node this method was called on.
+        """
         neighbors = []  
         if self.y != 0:
             neighbors.append(NODES[(self.x, self.y-1)]) # top
-        if self.x != MAZE_WIDTH-1: # subtract 1 because location indexes start at 0
+        # subtract 1 from MAZE_WIDTH because location indexes start at 0
+        if self.x != MAZE_WIDTH-1: 
             neighbors.append(NODES[(self.x+1, self.y)]) # right
-        if self.y != MAZE_HEIGHT-1: # subtract 1 because location indexes start at 0
+        # subtract 1 from MAZE_HEIGHT because location indexes start at 0
+        if self.y != MAZE_HEIGHT-1: 
             neighbors.append(NODES[(self.x, self.y+1)]) # bottom
         if self.x != 0:
             neighbors.append(NODES[(self.x-1, self.y)]) # left
@@ -954,26 +1045,32 @@ class Node(object):
     
     
     def get_directions_to_dig(self) -> list:
-        """Returns a list of nodes that can be emptied during maze generation. Viable node requirements:
-            Node direction + 1 must not be on the edge of the maze.
-            Node direction + 1 must not already be an empty node."""
+        """
+        Returns a list of nodes that can be emptied during maze generation. 
+        Viable node requirements:
+            1. Node direction + 1 must not be on the edge of the maze.
+            2. Node direction + 1 must not already be an empty node.
+        """
         # Immediate neighbor nodes
         neighbors = [
-            NODES[(self.loc[0], self.loc[1]+1)],  # top
-            NODES[(self.loc[0]+1, self.loc[1])],  # right
-            NODES[(self.loc[0], self.loc[1]-1)],  # bottom
-            NODES[(self.loc[0]-1, self.loc[1])],  # left
+            NODES[(self.x, self.y+1)],  # top
+            NODES[(self.x+1, self.y)],  # right
+            NODES[(self.x, self.y-1)],  # bottom
+            NODES[(self.x-1, self.y)],  # left
             ]
         # Look ahead one node in that direction and check for edges or paths
-        if self.loc[1]+2 > MAZE_HEIGHT-2 or NODES[(self.loc[0], self.loc[1]+2)].is_empty:
+        # Node direction + 1 must not be on the edge of the maze.
+        # Node direction + 1 must not already be an empty node.
+        if self.y+2 > MAZE_HEIGHT-2 or NODES[(self.x, self.y+2)].is_empty:
             neighbors[0] = False
-        if self.loc[0]+2 > MAZE_WIDTH-2 or NODES[(self.loc[0]+2, self.loc[1])].is_empty:
+        if self.x+2 > MAZE_WIDTH-2 or NODES[(self.x+2, self.y)].is_empty:
             neighbors[1] = False
-        if self.loc[1]-2 < 1 or NODES[(self.loc[0], self.loc[1]-2)].is_empty:
+        if self.y-2 < 1 or NODES[(self.x, self.y-2)].is_empty:
             neighbors[2] = False
-        if self.loc[0]-2 < 1 or NODES[(self.loc[0]-2, self.loc[1])].is_empty:
+        if self.x-2 < 1 or NODES[(self.x-2, self.y)].is_empty:
             neighbors[3] = False
         
+        # Return a list of neighbors that haven't been set to false
         return [neighbor for neighbor in neighbors if neighbor]
     
 
@@ -984,7 +1081,9 @@ class Node(object):
         if START_NODE:
             START_NODE.make_empty_node()
         START_NODE = self
-        self.style(COLORS['start'], border_color=COLORS['start_border'], border_width=4)
+        self.style(COLORS['start'], 
+                   border_color=COLORS['start_border'], 
+                   border_width=4)
         self.is_empty = True
         self.is_wall = False
         self.is_start_node = True
@@ -1001,7 +1100,9 @@ class Node(object):
         if END_NODE:
             END_NODE.make_empty_node()
         END_NODE = self
-        self.style(COLORS['end'], border_color=COLORS['end_border'], border_width=4)
+        self.style(COLORS['end'], 
+                   border_color=COLORS['end_border'], 
+                   border_width=4)
         self.is_empty = True
         self.is_wall = False
         self.is_start_node = False
@@ -1013,7 +1114,8 @@ class Node(object):
 
     def make_wall_node(self) -> None:
         """Converts the node to a wall node."""
-        self.style(color=COLORS['wall'], border_color=COLORS['wall'])
+        self.style(color=COLORS['wall'], 
+                   border_color=COLORS['wall'])
         self.maze.send_figure_to_back(self.id)
         self.is_empty = False
         self.is_wall = True
@@ -1057,7 +1159,9 @@ class Node(object):
 
     def make_active_node(self) -> None:
         """Flags and styles a node as active."""
-        self.style(COLORS['active'], COLORS['black'], border_width=3)
+        self.style(COLORS['active'], 
+                   COLORS['black'], 
+                   border_width=3)
         self.is_active = True
 
     def make_solution_node(self) -> None:
@@ -1070,7 +1174,10 @@ class Node(object):
 
 
     def reset_node(self):
-        """Resets a node (removes visited, and active flags, and returns original style.)"""
+        """
+        Removes removes is_visited, and is_active flags. 
+        Returns original node color.
+        """
         # reset flags
         self.is_visited = False
         self.is_active = False
@@ -1087,13 +1194,21 @@ class Node(object):
             
             
 """
-##     ##    ###    ######## ########     ######  ##          ###     ######   ######
-###   ###   ## ##        ##  ##          ##    ## ##         ## ##   ##    ## ##    ##
-#### ####  ##   ##      ##   ##          ##       ##        ##   ##  ##       ##
-## ### ## ##     ##    ##    ######      ##       ##       ##     ##  ######   ######
-##     ## #########   ##     ##          ##       ##       #########       ##       ##
-##     ## ##     ##  ##      ##          ##    ## ##       ##     ## ##    ## ##    ##
-##     ## ##     ## ######## ########     ######  ######## ##     ##  ######   ######
+##     ##    ###    ######## ########
+###   ###   ## ##        ##  ##
+#### ####  ##   ##      ##   ##
+## ### ## ##     ##    ##    ######
+##     ## #########   ##     ##
+##     ## ##     ##  ##      ##
+##     ## ##     ## ######## ########
+
+ ######  ##          ###     ######   ######
+##    ## ##         ## ##   ##    ## ##    ##
+##       ##        ##   ##  ##       ##
+##       ##       ##     ##  ######   ######
+##       ##       #########       ##       ##
+##    ## ##       ##     ## ##    ## ##    ##
+ ######  ######## ##     ##  ######   ######
 """
 class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
     """Extension of the sg.Graph class."""
@@ -1107,7 +1222,11 @@ class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
         MAZE_WIDTH = nodes_across
         MAZE_HEIGHT = nodes_down
         NODE_SIZE = node_size
-        print(f"Resize maze to: {nodes_across} nodes across, {nodes_down} nodes down, with a node size of {node_size}")
+        print(f"Resize maze:\n",
+              f"\t{nodes_across} nodes wide,\n",
+              f"\t{nodes_down} nodes down,\n",
+              f"\twith a node size of {node_size}"
+              )
         
         # Delete all figures
         for node in NODES.values():
@@ -1118,15 +1237,13 @@ class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
         # Create a new graph
         MAZE.change_coordinates(graph_bottom_left=(0, MAZE_HEIGHT*NODE_SIZE), 
                                 graph_top_right=(MAZE_WIDTH*NODE_SIZE, 0))
-        MAZE.set_size(size=(MAZE_WIDTH*NODE_SIZE, MAZE_HEIGHT*NODE_SIZE))
+        MAZE.set_size(size=(MAZE_WIDTH*NODE_SIZE, 
+                            MAZE_HEIGHT*NODE_SIZE))
         
         # Initialize new nodes
         for x in range(MAZE_WIDTH):
             for y in range(MAZE_HEIGHT):
                 init_node = Node(window['maze'], (x,y))
-        
-        # Refresh the UI
-        window.refresh()
         
     def fill_maze(self) -> None:
         for node in NODES.values():
@@ -1150,7 +1267,7 @@ class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
 ##     ## ##       ##       ##     ## ##     ## ##          ##    ##    ##
 ########  ######## ##       ##     ##  #######  ########    ##     ######
 """
-def create_settings_window(folder_path):
+def create_settings_window(root_dir):
     sg.theme('SystemDefaultForReal')
     settings = read_settings()
 
@@ -1166,22 +1283,52 @@ def create_settings_window(folder_path):
     ]
     col_2 = [  
         # Default Maze
-        [sg.Input(key='default_settings_default_maze', default_text=settings['default_maze']), sg.FileBrowse(file_types=[('Text Document', '*.txt')], initial_folder=folder_path)],
+        [sg.Input(key='default_settings_default_maze', 
+                  default_text=settings['default_maze']), 
+         sg.FileBrowse(file_types=[('Text Document', '*.txt')], 
+                       initial_folder=root_dir)],
         # Default Algorithm
-        [sg.Combo(key='default_settings_default_algorithm', default_value=settings['default_algorithm'], values=['Breadth-First Search', 'Depth-First Search', 'A* (A Star)'], size=20, readonly=True)],
+        [sg.Combo(key='default_settings_default_algorithm', 
+                  default_value=settings['default_algorithm'], 
+                  values=['Breadth-First Search', 
+                          'Depth-First Search', 
+                          'A* (A Star)'], 
+                  size=20, 
+                  readonly=True)],
         # Default Speed
-        [sg.Combo(key='default_settings_default_speed', default_value=settings['default_speed'], values=[1,2,3,4,5], size=4, readonly=True)],
+        [sg.Combo(key='default_settings_default_speed', 
+                  default_value=settings['default_speed'], 
+                  values=[1,2,3,4,5], 
+                  size=4, 
+                  readonly=True)],
         # Maze Dimensions
-        [sg.Spin(key='default_settings_maze_width', initial_value=settings['maze_width'], values=(valid_maze_dims), size=(5,1), expand_x=True), sg.Text('Maze Height:'), 
-         sg.Spin(key='default_settings_maze_height', initial_value=settings['maze_height'], values=(valid_maze_dims), size=(5,1), expand_x=True), sg.Text('Node Size:'), 
-         sg.Spin(key='default_settings_maze_node_size', initial_value=settings['node_size'], values=(valid_node_dims), size=(5,1), expand_x=True, readonly=True)],
+        [sg.Spin(key='default_settings_maze_width', 
+                 initial_value=settings['maze_width'], 
+                 values=(valid_maze_dims), 
+                 size=(5,1), 
+                 expand_x=True), 
+         sg.Text('Maze Height:'), 
+         sg.Spin(key='default_settings_maze_height', 
+                 initial_value=settings['maze_height'], 
+                 values=(valid_maze_dims), 
+                 size=(5,1), 
+                 expand_x=True), 
+         sg.Text('Node Size:'), 
+         sg.Spin(key='default_settings_maze_node_size', 
+                 initial_value=settings['node_size'], 
+                 values=(valid_node_dims), 
+                 size=(5,1), 
+                 expand_x=True, 
+                 readonly=True)],
     ]
     settings_layout = [
         [sg.Column(col_1), sg.Column(col_2)],
         [sg.Button('Save'), sg.Button('Close')]  
     ]
-
-    settings_window = sg.Window('Set Defaults', settings_layout, keep_on_top=True, finalize=True)
+    settings_window = sg.Window('Set Defaults', 
+                                layout=settings_layout, 
+                                keep_on_top=True, 
+                                finalize=True)
     return settings_window
 
 
@@ -1212,16 +1359,27 @@ def create_resize_window():
         [sg.Text('Node Size:')],
     ]
     col_2 = [  
-        [sg.Spin(key="resize_window_maze_width", initial_value =MAZE_WIDTH, values=(list(range(200))), size=(5,1))], 
-        [sg.Spin(key="resize_window_maze_height", initial_value =MAZE_HEIGHT, values=(list(range(200))), size=(5,1))], 
-        [sg.Spin(key="resize_window_node_size", initial_value =NODE_SIZE, values=(list(range(200))), size=(5,1))],
+        [sg.Spin(key="resize_window_maze_width", 
+                 initial_value =MAZE_WIDTH, 
+                 values=(list(range(200))), 
+                 size=(5,1))], 
+        [sg.Spin(key="resize_window_maze_height", 
+                 initial_value =MAZE_HEIGHT, 
+                 values=(list(range(200))), 
+                 size=(5,1))], 
+        [sg.Spin(key="resize_window_node_size", 
+                 initial_value =NODE_SIZE, 
+                 values=(list(range(200))), 
+                 size=(5,1))],
     ]
     resize_layout = [
         [sg.Column(col_1), sg.Column(col_2)],
         [sg.Button('Resize'), sg.Button('Close')]  
     ]
-    
-    resize_window = sg.Window('Set Defaults', resize_layout, keep_on_top=True, finalize=True)
+    resize_window = sg.Window('Set Defaults', 
+                              layout=resize_layout, 
+                              keep_on_top=True, 
+                              finalize=True)
     return resize_window
     
 
@@ -1246,7 +1404,10 @@ def create_resize_window():
 # Create the Window
 def create_main_window() -> object:
     """Creates the main UI window."""
+    # Establish color theme
     sg.theme('SystemDefaultForReal')
+    
+    # Maze graph
     global MAZE
     MAZE = Maze(key="maze",
                 canvas_size=(MAZE_WIDTH*NODE_SIZE, MAZE_HEIGHT*NODE_SIZE), 
@@ -1255,85 +1416,111 @@ def create_main_window() -> object:
                 background_color="#ff0000", 
                 drag_submits=True, 
                 enable_events=True)
-    menu = [['File', ['Open Maze', 'Save Maze', 'Exit']], 
-            ['Tools', ['Generate Maze', 'Resize Maze', 'Fill Maze']],
-            ['Settings', ['Runtime Info', 'Preferences']]]
-    layout_algo_radios = [
-        [sg.Radio(group_id='algo', key='radio_algo_bfs', enable_events=True, text='Breadth First Search', default=True)],
-        [sg.Radio(group_id='algo', key='radio_algo_dfs', enable_events=True, text='Depth First Search')],
-        #[sg.Radio(group_id='algo', key='radio_algo_dijkstra', enable_events=True, text='Dijkstra')],
-        [sg.Radio(group_id='algo', key='radio_algo_astar', enable_events=True, text='A* (A Star)')],
-    ]
-    layout_maze_tools = [
-        [
-            sg.Button('Wall', key='maze_tools_wall', expand_x=True, tooltip="Draw walls on the grid."), 
-            sg.Button('Path', key='maze_tools_path', expand_x=True, tooltip="Erase walls and make paths.")
-        ],
-        [sg.Button('Start Node', key='maze_tools_start', expand_x=True, tooltip="Designate a starting square.")], 
-        [sg.Button('End Node', key='maze_tools_end', expand_x=True, tooltip="Designate an end square.")]
-    ]
-    layout_controls = [                             
-        [
-            sg.Button('Solve', key='controls_solve', expand_x=True, tooltip="Solves the maze using the selected algorithm."),    # Solve
-        ],
-        [
-            sg.Button('\u23f8', key='controls_pause', expand_x=True, disabled=True, tooltip="Play/Pause"),   # Play/pause
-            sg.Button('\u23e9', key='controls_next', expand_x=True, disabled=True, tooltip="Step Forward"),    # Next
-        ],
-        [
-            sg.Text(f'Speed:', key='controls_speed_label'), 
-        ],
-        [
-            sg.Slider(range=(1,5), 
-                    default_value=5, 
-                    key='controls_speed_slider', 
-                    orientation='h', 
-                    size=(10, 15), 
-                    expand_x=True, 
-                    enable_events=True, 
-                    disable_number_display=True,
-                    tooltip="Speed of the algorithm. Higher is faster.")
-        ]
-    ]
-    layout = [
-        [sg.Menu(menu, key="main_menu", background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
-        [MAZE],
-        [
-            [sg.Frame('Algorithm', layout_algo_radios, expand_y=True, expand_x=True),
-            sg.Frame('Draw', layout_maze_tools, expand_y=True, expand_x=True), 
-            sg.Frame('Controls', layout_controls, expand_y=True, expand_x=True)],
-            [
-                sg.Button('Clear Maze', key='maze_tools_clear', expand_x=True, tooltip="Erases the entire maze, leaving an empty grid."), 
-                sg.Button('Reset Current Maze', key='maze_tools_reset', expand_x=True, tooltip="Resets the current maze to its initial state.")
-            ]
-        ]
-    ]
     
-    return sg.Window(f'PathyPyinder {VERSION}', layout, icon='assets/icon.ico', finalize=True)
+    # Main menu
+    menu = [['File', ['Open Maze', 'Save Maze', 'Exit']], 
+            ['Tools', ['Generate Maze', 'Fill Maze']],
+            ['Settings', ['Runtime Info', 'Maze Dimensions', 'Defaults']]]
+    
+    # Algorithm selection radios
+    layout_algo_radios = [
+        [sg.Radio(group_id='algo', key='radio_algo_bfs', enable_events=True, 
+                  text='Breadth First Search', default=True)],
+        [sg.Radio(group_id='algo', key='radio_algo_dfs', enable_events=True, 
+                  text='Depth First Search')],
+        # [sg.Radio(group_id='algo', 
+        #           key='radio_algo_dijkstra', 
+        #           enable_events=True, 
+        #           text='Dijkstra')],
+        [sg.Radio(group_id='algo', key='radio_algo_astar', enable_events=True, 
+                  text='A* (A Star)')],
+        ]
+    
+    # Maze draw mode buttons 
+    layout_maze_tools = [
+        [sg.Button(button_text='Wall', key='maze_tools_wall', expand_x=True, 
+                   tooltip="Draw walls on the grid."), 
+         sg.Button(button_text='Path', key='maze_tools_path', expand_x=True, 
+                   tooltip="Erase walls and make paths.")],
+        [sg.Button(button_text='Start Node', key='maze_tools_start', 
+                   expand_x=True, tooltip="Designate a starting square.")], 
+        [sg.Button(button_text='End Node', key='maze_tools_end', 
+                   expand_x=True, tooltip="Designate an end square.")]
+        ]
+    
+    # Algorithm controls
+    layout_controls = [                             
+        [sg.Button('Solve', key='controls_solve', expand_x=True, 
+                   tooltip="Solves the maze using the selected algorithm.")],
+        [sg.Button('\u23f8', key='controls_pause', expand_x=True, 
+                   disabled=True, tooltip="Play/Pause"),
+         sg.Button('\u23e9', key='controls_next', expand_x=True, 
+                   disabled=True, tooltip="Step Forward")],
+        [sg.Text(f'Speed:', key='controls_speed_label')],
+        [sg.Slider(range=(1,5), default_value=5, key='controls_speed_slider', 
+                   orientation='h', size=(10, 15), expand_x=True, 
+                   enable_events=True, disable_number_display=True,
+                   tooltip="Speed of the algorithm. Higher is faster.")]
+        ]
+    
+    # Consolidated layout
+    layout = [
+        # Menu Row
+        [sg.Menu(menu_definition=menu, key="main_menu", 
+                 background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
+        # Maze Row
+        [MAZE],
+        # Three frames in one row
+        [sg.Frame(title='Algorithm', layout=layout_algo_radios, 
+                 expand_y=True, expand_x=True),
+         sg.Frame(title='Draw', layout=layout_maze_tools, 
+                  expand_y=True, expand_x=True), 
+         sg.Frame(title='Controls', layout=layout_controls, 
+                  expand_y=True, expand_x=True)
+            ],
+        # Reset & Clear Buttons
+        [sg.Button('Clear Maze', key='maze_tools_clear', expand_x=True, 
+                   tooltip="Erases the entire maze, leaving an empty grid."), 
+         sg.Button('Reset Current Maze', key='maze_tools_reset', 
+                   expand_x=True, 
+                   tooltip="Resets the current maze to its initial state.")]
+    ]
+    return sg.Window(f'PathyPyinder {VERSION}', layout=layout, 
+                     icon='assets/icon.ico', finalize=True)
+
 # Create the main window
 window = create_main_window()
 # Loads settings from settings.cfg from pathypyinder.py's directory
 # Resorts to loading from default_settings if settings.cfg fails to load
-apply_settings(path.join(path.dirname(__file__), 'settings.cfg'), DEFAULT_SETTINGS)
+apply_settings(path.join(path.dirname(__file__), 'settings.cfg'), 
+               DEFAULT_SETTINGS)
 set_draw_mode('wall')
 
 
 
 """
-######## ##     ## ######## ##    ## ########    ##        #######   #######  ########
-##       ##     ## ##       ###   ##    ##       ##       ##     ## ##     ## ##     ##
-##       ##     ## ##       ####  ##    ##       ##       ##     ## ##     ## ##     ##
-######   ##     ## ######   ## ## ##    ##       ##       ##     ## ##     ## ########
-##        ##   ##  ##       ##  ####    ##       ##       ##     ## ##     ## ##
-##         ## ##   ##       ##   ###    ##       ##       ##     ## ##     ## ##
-########    ###    ######## ##    ##    ##       ########  #######   #######  ##
+######## ##     ## ######## ##    ## ########
+##       ##     ## ##       ###   ##    ##
+##       ##     ## ##       ####  ##    ##
+######   ##     ## ######   ## ## ##    ##
+##        ##   ##  ##       ##  ####    ##
+##         ## ##   ##       ##   ###    ##
+########    ###    ######## ##    ##    ##
+
+##        #######   #######  ########
+##       ##     ## ##     ## ##     ##
+##       ##     ## ##     ## ##     ##
+##       ##     ## ##     ## ########
+##       ##     ## ##     ## ##
+##       ##     ## ##     ## ##
+########  #######   #######  ##
 """
 while True:
     # Continuously read the window for events
     if window is None:
         window = create_main_window()
     event, values = window.read()
-    # Break the loop if the window is closed or the 'Exit' button from the menu is clicked
+    # Break the loop if the window is closed
     if event == sg.WIN_CLOSED or event == 'Exit':
         break
     
@@ -1342,17 +1529,15 @@ while True:
         if not MODE:
             pass
         else:
-            # get a floor division of the graph coordinates to get a node location
-            loc = (values['maze'][0] // NODE_SIZE, values['maze'][1] // NODE_SIZE)
+            # get (x,y) coordinates of the node that was clicked
+            loc = (values['maze'][0] // NODE_SIZE, 
+                   values['maze'][1] // NODE_SIZE)
             # make sure node location is in-bounds
             if -1 < loc[0] < MAZE_WIDTH and -1 < loc[1] < MAZE_HEIGHT:
                 # set the current working node
                 clicked_node = NODES[loc]
-                # if the location is out of bounds, pass
-                if loc not in NODES:
-                    pass
                 # draw a node based on the draw mode
-                elif MODE == 'wall':
+                if MODE == 'wall':
                     clicked_node.make_wall_node()
                 elif MODE == 'path':
                     clicked_node.make_empty_node()
@@ -1397,16 +1582,22 @@ while True:
         
     # Menu
     elif event == 'Open Maze':
-        open_maze_file(sg.filedialog.askopenfilename(filetypes=[('Text Document', '*.txt')], defaultextension=[('Text Document', '*.txt')]))
+        open_maze_file(sg.filedialog.askopenfilename(
+            filetypes=[('Text Document', '*.txt')], 
+            defaultextension=[('Text Document', '*.txt')]))
     elif event == 'Save Maze':
-        save_maze_file(sg.filedialog.asksaveasfile(filetypes=[('Text Document', '*.txt')], defaultextension=[('Text Document', '*.txt')]))
+        save_maze_file(sg.filedialog.asksaveasfile(
+            filetypes=[('Text Document', '*.txt')], 
+            defaultextension=[('Text Document', '*.txt')]))
     elif event == 'Generate Maze':
         generate_maze()
-    elif event == 'Resize Maze':
+    elif event == 'Maze Dimensions':
         resize_window = create_resize_window()
         event, values = resize_window.read(close=True)
         if event == 'Resize':
-            MAZE.resize_maze(values['resize_window_maze_width'], values['resize_window_maze_height'], values['resize_window_node_size'])
+            MAZE.resize_maze(values['resize_window_maze_width'],
+                             values['resize_window_maze_height'],
+                             values['resize_window_node_size'])
             resize_window.close()
         elif event in ('Close', sg.WIN_CLOSED):
             resize_window.close()
@@ -1414,8 +1605,10 @@ while True:
         MAZE.fill_maze()
     elif event == 'Runtime Info':
         sg.popup_scrolled(sg.get_versions())
-    elif event == 'Preferences':
-        settings_window = create_settings_window(path.join(path.dirname(__file__)))
+    elif event == 'Defaults':
+        # Directory where pathpyinder.py is
+        root_dir = path.join(path.dirname(__file__))
+        settings_window = create_settings_window(root_dir)
         event, values = settings_window.read(close=True)
         if event == 'Save':
             save_settings(values)
@@ -1424,7 +1617,7 @@ while True:
             
     
     # Log window event and values
-    print("Event: \t", event)
-    print("Values: ", values)
+    # print("Event: \t", event)
+    # print("Values: ", values)
 
 window.close()
