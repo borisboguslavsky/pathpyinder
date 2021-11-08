@@ -24,7 +24,7 @@ from os import (path as path, name as operating_system)
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.7.0'
+VERSION = '1.7.1'
 OS = operating_system
 
 MAZE_WIDTH = 51
@@ -34,19 +34,18 @@ NODE_SIZE = 10
 NODES = {}         # Dictionary of nodes in the grid with (x,y) tuples as keys
 START_NODE = None  # Instance of Node. The node from which the algorithm starts
 END_NODE = None    # Instance of Node. The node at which the maze is 'solved'
-SOLUTION_FIGS = []
 
 ALGO = 'Breadth-First Search'   # Pathfinding algorithm to use.
 MODE = 'wall'                   # None, 'wall', 'path', 'start', 'end'
 TEMP_DELAY = None               # Temporary variable to store original DELAY
-DELAY = 0                       # Delay (in milliseconds)
+DELAY = 0                       # Algorithm iteration delay (in milliseconds)
 SPEED = None                    # Value of the speed slider
 PAUSED = False                  # Flipped if the pause button is clicked
 
-# To avoid having to check for user input on every algorithm loop iteration
-# Each algorithm loop iteration will increment LOOP_COUNT
-# Once LOOP_COUNT > LOOP_CHECK, the window will check and process user input
-# Lower algorithm speeds require lower LOOP_CHECK values
+# Checking for user input on every loop iteration slows down the algorithms
+# To avoid this, we will only check for user input every LOOP_CHECK iterations
+# Because lower speeds require lower LOOP_CHECK values to avoid input delay,
+# The speed slider will adjust LOOP_CHECK on a per-speed basis
 LOOP_COUNT = 0
 LOOP_CHECK = 0
 
@@ -125,7 +124,6 @@ def set_draw_mode(draw_mode: str) -> None:
     `'end'`: Click somewhere on the grid to set an end point.
     """
     global MODE
-    global window
     MODE = draw_mode
     # Depress all draw mode buttons
     window['maze_tools_wall'].update(button_color=('#000', '#f0f0f0'))
@@ -145,14 +143,6 @@ def set_draw_mode(draw_mode: str) -> None:
     print(f"Draw mode set to '{draw_mode}'")
 
 
-def bring_start_and_end_nodes_to_front():
-    """Bring the starting and ending nodes to the front of the maze."""
-    if START_NODE:
-        window['maze'].bring_figure_to_front(START_NODE.id)
-    if END_NODE:
-        window['maze'].bring_figure_to_front(END_NODE.id)
-
-
 def reset() -> None:
     """
     Clears the solution from the maze and sets all nodes' `is_visited`, 
@@ -163,7 +153,7 @@ def reset() -> None:
     for node in NODES.values():
         node.reset_node()
     MAZE.clear_solution()
-    bring_start_and_end_nodes_to_front()
+    MAZE.bring_start_and_end_nodes_to_front()
     disable_element('controls_pause')
     disable_element('controls_next')
     enable_drawing_tools()
@@ -172,6 +162,7 @@ def reset() -> None:
     enable_element('controls_solve')
     raise_button('controls_solve')
     set_draw_mode('wall')
+    enable_menu(window)
     
 
 def clear() -> None:
@@ -189,6 +180,7 @@ def clear() -> None:
     enable_element('controls_solve')
     raise_button('controls_solve')
     set_draw_mode('wall')
+    enable_menu(window)
     
     
 def set_speed(speed: float) -> None:
@@ -221,17 +213,28 @@ def set_speed(speed: float) -> None:
         LOOP_CHECK = 10
     print(f'Delay set to: {DELAY}ms.')
     
-    
-def disable_element(sg_key) -> None:
-    """Disables a button."""
-    window[sg_key].update(disabled=True)
 
-
-def enable_element(sg_key) -> None:
-    """Enables a button."""
-    window[sg_key].update(disabled=False)
+def disable_menu(window) -> None:
+    """Disables the window menu."""
+    #menu = [['!File', ['Nothing']], 
+    #       ['!Tools', ['Nothing']],
+    #       ['!Settings', ['Nothing']]]
+    #if window['main_menu'].MenuDefinition != menu:
+    #    window['main_menu'].update(menu_definition=menu)
+    #    window.refresh()
+    pass
     
-            
+    
+def enable_menu(window) -> None:
+    """Enables the window menu."""
+    #menu = [['File', ['Open Maze', 'Save Maze', 'Exit']], 
+    #       ['Tools', ['Generate Maze', 'Fill Maze']],
+    #       ['Settings', ['Runtime Info', 'Maze Dimensions', 'Defaults']]]
+    #if window['main_menu'].MenuDefinition != menu:
+    #    window['main_menu'].update(menu_definition=menu)
+    #    window.refresh()
+    pass
+
 
 def raise_button(sg_key, colors=('#000', '#f0f0f0')) -> None:
     """
@@ -259,6 +262,16 @@ def recess_button(sg_key, colors=('#000', '#f0f0f0')) -> None:
     window[sg_key].update(button_color=colors)
     if OS == 'nt':
         window[sg_key].Widget.configure(relief='sunken')
+    
+    
+def disable_element(sg_key) -> None:
+    """Disables a button."""
+    window[sg_key].update(disabled=True)
+
+
+def enable_element(sg_key) -> None:
+    """Enables a button."""
+    window[sg_key].update(disabled=False)
     
     
 def enable_drawing_tools() -> None:
@@ -307,11 +320,11 @@ def disable_algo_radios() -> None:
  ##  ##   ### ##        ##     ##    ##
 #### ##    ## ##         #######     ##
 """
-def read_algo_controls(timeout=None) -> bool:
+def read_algo_controls(timeout=None) -> tuple:
     """
     Reads inputs from the control panel while the algorithm is running.
-    Returns `False` to continue running. 
-    Returns `True` to break out of the algorithm loop.
+    Returns `(False, event)` to continue running. 
+    Returns `(True, event)` to break out of the algorithm loop.
     """
     event, values = window.read(timeout)
     # Break out of the function if it's just a timeout event
@@ -361,6 +374,14 @@ def read_algo_controls(timeout=None) -> bool:
     elif event == 'maze_tools_reset':
         reset()
         return (True, event)
+    
+    # Menu items will do nothing
+    elif event in ('File', 'Tools', 'Settings', 
+                   'Open Maze', 'Save Maze',
+                   'Generate Maze', 'Fill Maze',
+                   'Runtime Info', 'Maze Dimension', 'Defaults'):
+        return (False, '__TIMEOUT__')
+    
     # Log window event and values
     print("Event: \t", event)
     print("Values: ", values)
@@ -376,14 +397,14 @@ def check_for_input() -> bool:
     global LOOP_CHECK
     if LOOP_COUNT > LOOP_CHECK:
         interrupted, event = read_algo_controls(timeout=DELAY)
-        # if event in ('Exit', sg.WIN_CLOSED):
-        #     return True
         if interrupted:
             LOOP_COUNT = 0
             return True
         if event in ('controls_next' or 'controls_speed_slider'):
+            # Make sure controls are read on the next loop iteration
             LOOP_COUNT = LOOP_CHECK+1
         else:
+            # Algorithm controls have been checked, reset LOOP_COUNT
             LOOP_COUNT = 0
     else:
         LOOP_COUNT += 1
@@ -604,6 +625,7 @@ def solve_maze() -> None:
     # Check to make sure there's a start and end node
     if START_NODE and END_NODE:
         # Disable UI elements that can't be used while solving
+        disable_menu(window)
         disable_element('controls_solve')
         disable_drawing_tools()
         disable_algo_radios()
@@ -616,7 +638,7 @@ def solve_maze() -> None:
         print('*'*40)
         
         # Run algorithm
-        if ALGO == 'Breadth-First Search' or ALGO == 'Depth-First Search':
+        if ALGO in ('Breadth-First Search', 'Depth-First Search'):
             bfs_dfs()
         elif ALGO == 'Dijkstra':
             dijkstra()
@@ -627,6 +649,9 @@ def solve_maze() -> None:
         disable_element('controls_pause')
         raise_button('controls_pause')
         disable_element('controls_next')
+        
+        # Enable elements that can only be used while not solving
+        enable_menu(window)
                 
     # Show a popup message if there's not both a start and end node
     else:
@@ -698,7 +723,7 @@ def open_maze_file(filename: str) -> bool:
                         # reset the x coordinate at the end of each line
                         x = x+1 if x < width else 0
                     y += 1
-            bring_start_and_end_nodes_to_front()
+            MAZE.bring_start_and_end_nodes_to_front()
         except:
             sg.popup('Error loading maze.')
             clear()
@@ -859,7 +884,7 @@ def generate_maze() -> None:
         elif y_diff == 1: # append top node
             stack.append(NODES[(current_node.x, current_node.y-2)])
     
-    bring_start_and_end_nodes_to_front()
+    MAZE.bring_start_and_end_nodes_to_front()
             
             
             
@@ -1009,6 +1034,18 @@ class Node(object):
         self.is_visited = False
         self.is_active = False
         
+        # List of all surrounding node locations
+        self.surrounding_locations = (
+            (self.x, self.y+1),     # top
+            (self.x+1, self.y+1),   # top-right
+            (self.x+1, self.y),     # right
+            (self.x+1, self.y-1),   # bottom-right
+            (self.x, self.y-1),     # bottom
+            (self.x-1, self.y-1),   # bottom-left
+            (self.x-1, self.y),     # left
+            (self.x-1, self.y+1),   # top-left
+        )
+        
         # parent node for backtracking and highlighting maze solution
         self.parent = None
         # distance attribute of the node (used in astar algorithm)
@@ -1024,7 +1061,7 @@ class Node(object):
                                       line_width=1)
         
         # Add the node to the global nodes dictionary
-        NODES[(location[0], location[1])] = self
+        NODES[(self.x, self.y)] = self
         # print(f'Node created at {self.x}, {self.y}. Node id: {self.id}')
 
 
@@ -1032,6 +1069,14 @@ class Node(object):
         """Returns the graph coordinates of the center of the node."""
         return (self.x * NODE_SIZE + (NODE_SIZE/2),
                 self.y * NODE_SIZE + (NODE_SIZE/2))
+        
+    
+    def is_next_to(self, node) -> bool:
+        """Returns `True` if node is next to node passed as parameter."""
+        if node:
+            if self.loc in node.surrounding_locations:
+                return True
+        return False
         
 
     def style(self, color, border_color='#fff', border_width=1, 
@@ -1180,6 +1225,12 @@ class Node(object):
             global END_NODE
             self.is_end_node = False
             END_NODE = None
+        # If drawn next to a start or end node,
+        # Make sure it's behind that node.
+        if self.is_next_to(START_NODE):
+            MAZE.bring_figure_to_front(START_NODE.id)
+        if self.is_next_to(END_NODE):
+            MAZE.bring_figure_to_front(END_NODE.id)
         
     
     def make_visited_node(self) -> None:
@@ -1249,7 +1300,6 @@ class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
     
     def __init__(self, key, canvas_size, graph_bottom_left, graph_top_right, 
                  background_color, drag_submits, enable_events):
-        self.solution_figures = []
         super().__init__(key=key, 
                          canvas_size=canvas_size, 
                          graph_bottom_left=graph_bottom_left, 
@@ -1257,6 +1307,8 @@ class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
                          background_color=background_color, 
                          drag_submits=drag_submits, 
                          enable_events=enable_events)
+        # List of figures in the solution line
+        self.solution_figures = []
         
         """
         sg.Graph Super Class Initialization Vars:
@@ -1353,6 +1405,14 @@ class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
             for figure_id in self.solution_figures:
                 self.delete_figure(figure_id)
             self.solution_figures = []
+
+
+    def bring_start_and_end_nodes_to_front(self):
+        """Bring the starting and ending nodes to the front of the maze."""
+        if START_NODE:
+            self.bring_figure_to_front(START_NODE.id)
+        if END_NODE:
+            self.bring_figure_to_front(END_NODE.id)
 
 
 """
@@ -1574,7 +1634,8 @@ def create_main_window() -> object:
         [sg.Menu(menu_definition=menu, key="main_menu", 
                  background_color='#f0f0f0', tearoff=False, pad=(200, 2))],
         # Maze Row
-        [MAZE],
+        [sg.Column(layout=[[MAZE]], 
+                   element_justification='center', expand_x=True)],
         # Three frames in one row
         [sg.Frame(title='Algorithm', layout=layout_algo_radios, 
                  expand_y=True, expand_x=True),
@@ -1650,8 +1711,6 @@ while True:
                     clicked_node.make_start_node()
                 elif MODE == 'end':
                     clicked_node.make_end_node()
-            # In case a path or well overlaps next to a start/end node
-            bring_start_and_end_nodes_to_front()
     
     # Algorithm radio switches
     elif event == 'radio_algo_bfs':
