@@ -1,16 +1,17 @@
 # PathPyinder
+
+[![PathPyinder GUI](assets/pathpyinder_social_cover.png)](https://youtu.be/Eh_Byli2bmM)
+
 PathPyinder is an interactive pathfinding algorithm visualizer written in Python. Automatically generate mazes, draw your own custom mazes from scratch, or load pre-built mazes. Watch how three different pathfinding algorithms then solve the mazes you drew.
 
-
 ## Requirements
-* **Windows**
 * **Python** - Version 3.6 or higher
+
+*Warning: there may be some GUI jank or bugs when using on MacOS.*
 
 
 ## Usage
-Navigate to the root directory via terminal and launch PathPyinder with: `python pathpyinder.py`. If you have a Python 2.X and a 3.X installation on your machine, you may need to use the command `python3 pathpyinder.py`. The following GUI should open:
-
-![PathPyinder GUI](assets/pathpyinder_gui.png "PathPyinder GUI")
+Navigate to the root directory via terminal and launch PathPyinder with: `python pathpyinder.py`. If you have a Python 2.X and a 3.X installation on your machine, you may need to use the command `python3 pathpyinder.py`.
 
 ### **Drawing Mazes:**
 PathPyinder is interactive, so you can draw your own mazes. There are four types of maze nodes that can be drawn: 

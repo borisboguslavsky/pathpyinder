@@ -24,7 +24,7 @@ from os import (path as path, name as operating_system)
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.7.1'
+VERSION = '1.7.2'
 OS = operating_system
 
 MAZE_WIDTH = 51
@@ -725,8 +725,11 @@ def open_maze_file(filename: str) -> bool:
                     y += 1
             MAZE.bring_start_and_end_nodes_to_front()
         except:
-            sg.popup('Error loading maze.')
+            # If there's no nodes, generate them
+            if not NODES:
+                MAZE.resize_maze(MAZE_WIDTH,MAZE_HEIGHT,NODE_SIZE)
             clear()
+            sg.popup('Error loading maze.')
 
 
 
@@ -1654,6 +1657,16 @@ def create_main_window() -> object:
     return sg.Window(f'PathyPyinder {VERSION}', layout=layout, 
                      icon='assets/icon.ico', finalize=True)
 
+
+"""
+#### ##    ## #### ########
+ ##  ###   ##  ##     ##
+ ##  ####  ##  ##     ##
+ ##  ## ## ##  ##     ##
+ ##  ##  ####  ##     ##
+ ##  ##   ###  ##     ##
+#### ##    ## ####    ##
+"""
 # Create the main window
 window = create_main_window()
 # Loads settings from settings.cfg from pathypyinder.py's directory

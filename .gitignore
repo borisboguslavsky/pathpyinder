@@ -6,8 +6,8 @@
 /reference/*
 /notes.txt
 
-# Outdated files
-mazes/old/*
+# Irrelevant files
+assets/videos/*
 
 # OS generated files
 .DS_Store
