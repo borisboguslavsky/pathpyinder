@@ -9,6 +9,12 @@
 # Irrelevant files
 assets/videos/*
 
+# Build files
+build.bat
+build/*
+dist/*
+pathpyinder.spec
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -20,4 +26,4 @@ Thumbs.db
 
 # Python Caches & Linting Options
 /.pylintrc
-/modules/__pycache__
+*__pycache__

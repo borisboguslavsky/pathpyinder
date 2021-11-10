@@ -24,7 +24,7 @@ from os import (path as path, name as operating_system)
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.7.2'
+VERSION = '1.7.3'
 OS = operating_system
 
 MAZE_WIDTH = 51
@@ -335,8 +335,11 @@ def read_algo_controls(timeout=None) -> tuple:
     global DELAY
     DELAY = TEMP_DELAY
     
+    if event == sg.WIN_CLOSED:
+        return (True, event)
+    
     # Pause Button
-    if event == 'controls_pause':
+    elif event == 'controls_pause':
         print('Pause button clicked.')
         global PAUSED
         # Update button style
@@ -399,7 +402,7 @@ def check_for_input() -> bool:
         interrupted, event = read_algo_controls(timeout=DELAY)
         if interrupted:
             LOOP_COUNT = 0
-            return True
+            return (True, event)
         if event in ('controls_next' or 'controls_speed_slider'):
             # Make sure controls are read on the next loop iteration
             LOOP_COUNT = LOOP_CHECK+1
@@ -411,7 +414,7 @@ def check_for_input() -> bool:
         # Slow algorithm down according to delay
         sleep(DELAY/1000)
     window.refresh()
-    return False
+    return (False, None)
 
 
 """
@@ -447,7 +450,7 @@ def bfs_dfs() -> None:
         
         # Checks for and processes user input 
         # every LOOP_CHECK iterations of this loop
-        interrupted = check_for_input()
+        interrupted, event = check_for_input()
         if interrupted:
             break
         
@@ -478,6 +481,11 @@ def bfs_dfs() -> None:
     
     # Mark the solution path
     if not interrupted: MAZE.highlight_solution(current_node)
+    # Return false if the window is closing
+    if event in ('Exit', sg.WIN_CLOSED): 
+        return False
+    # Continue as normal
+    return True
 
 
 
@@ -514,7 +522,7 @@ def dijkstra() -> None:
         
         # Checks for and processes user input 
         # every LOOP_CHECK iterations of this loop
-        interrupted = check_for_input()
+        interrupted, event = check_for_input()
         if interrupted:
             break
         
@@ -543,6 +551,7 @@ def dijkstra() -> None:
             
     # Mark the solution path
     if not interrupted: MAZE.highlight_solution(current_node)
+    return True
 
 
 
@@ -578,7 +587,7 @@ def astar() -> None:
         
         # Checks for and processes user input 
         # every LOOP_CHECK iterations of this loop
-        interrupted = check_for_input()
+        interrupted, event = check_for_input()
         if interrupted:
             break
         
@@ -608,6 +617,7 @@ def astar() -> None:
             
     # Mark the solution path
     if not interrupted: MAZE.highlight_solution(current_node)
+    return True
 
 
 """
@@ -639,11 +649,17 @@ def solve_maze() -> None:
         
         # Run algorithm
         if ALGO in ('Breadth-First Search', 'Depth-First Search'):
-            bfs_dfs()
+            # If algorithm returns false, window is closeing
+            if not bfs_dfs():
+                return False
         elif ALGO == 'Dijkstra':
-            dijkstra()
+            # If algorithm returns false, window is closeing
+            if not dijkstra():
+                return False
         elif ALGO == 'A* (A Star)':
-            astar()
+            # If algorithm returns false, window is closeing
+            if not astar():
+                return False
             
         # Disable elements that can't be used while not solving
         disable_element('controls_pause')
@@ -972,32 +988,22 @@ def save_settings(settings):
         jsondump(parsed_settings, settings_file, indent=4)
         
         
-def apply_settings(settings_file, defaults):
+def apply_settings():
     """Loads settings used to initialize the grid."""
-    try:
-        with open(settings_file, 'r') as f:
-            read_settings = jsonload(f)
-        print(f'Opening settings: {settings_file}')
-        print(read_settings)
-        final_settings = read_settings
-    except:
-        print(f'Could not open settings file: {settings_file}',
-              '\nResorting to defaults...')
-        print(defaults)
-        final_settings = defaults
+    settings = read_settings()
     
     # Set speed
-    window['controls_speed_slider'].update(value=final_settings["default_speed"])
-    set_speed(final_settings["default_speed"])
+    window['controls_speed_slider'].update(value=settings["default_speed"])
+    set_speed(settings["default_speed"])
     # Set algorithm
-    set_algo(final_settings["default_algorithm"])
+    set_algo(settings["default_algorithm"])
     # Open maze
-    if final_settings["default_maze"] != "None":
-        open_maze_file(final_settings["default_maze"])
+    if settings["default_maze"] != "None":
+        open_maze_file(settings["default_maze"])
     else:
-        MAZE.resize_maze(final_settings["maze_width"], 
-                         final_settings["maze_height"], 
-                         final_settings["node_size"])
+        MAZE.resize_maze(settings["maze_width"], 
+                         settings["maze_height"], 
+                         settings["node_size"])
 
 
 
@@ -1581,7 +1587,7 @@ def create_main_window() -> object:
                 canvas_size=(MAZE_WIDTH*NODE_SIZE, MAZE_HEIGHT*NODE_SIZE), 
                 graph_bottom_left=(0, MAZE_HEIGHT*NODE_SIZE), 
                 graph_top_right=(MAZE_WIDTH*NODE_SIZE, 0), 
-                background_color="#ff0000", 
+                background_color="#ffffff", 
                 drag_submits=True, 
                 enable_events=True)
     
@@ -1655,7 +1661,7 @@ def create_main_window() -> object:
                    tooltip="Resets the current maze to its initial state.")]
     ]
     return sg.Window(f'PathyPyinder {VERSION}', layout=layout, 
-                     icon='assets/icon.ico', finalize=True)
+                     icon='../assets/icon.ico', finalize=True)
 
 
 """
@@ -1671,8 +1677,7 @@ def create_main_window() -> object:
 window = create_main_window()
 # Loads settings from settings.cfg from pathypyinder.py's directory
 # Resorts to loading from default_settings if settings.cfg fails to load
-apply_settings(path.join(path.dirname(__file__), 'settings.cfg'), 
-               DEFAULT_SETTINGS)
+apply_settings()
 set_draw_mode('wall')
 
 
@@ -1784,7 +1789,7 @@ while True:
         sg.popup_scrolled(sg.get_versions())
     elif event == 'Defaults':
         # Directory where pathpyinder.py is
-        root_dir = path.join(path.dirname(__file__))
+        root_dir = path.dirname(__file__)
         settings_window = create_settings_window(root_dir)
         event, values = settings_window.read(close=True)
         if event == 'Save':
