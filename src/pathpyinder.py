@@ -24,7 +24,7 @@ from os import (path as path, name as operating_system)
 ##    ##  ##       ##     ## ##     ## ##     ## ##       ##    ##
  ######   ########  #######  ########  ##     ## ########  ######
 """
-VERSION = '1.7.3'
+VERSION = '1.7.4'
 OS = operating_system
 
 MAZE_WIDTH = 51
@@ -606,7 +606,7 @@ def astar() -> None:
                 # Set distance to be distance from the neighbor to end node
                 neighbor.distance = (abs(END_NODE.x - neighbor.x) + 
                                      abs(END_NODE.y - neighbor.y))
-                # Update the queue with the new distance. 
+                # Update the queue with the new distance as the priority 
                 # queue.push() ADDS a new entry, OR UPDATES an existing one
                 queue.push(neighbor.loc, neighbor.distance)
                 # Establish parent node
@@ -661,7 +661,7 @@ def solve_maze() -> None:
             if not astar():
                 return False
             
-        # Disable elements that can't be used while not solving
+        # Disable elements that can only be used while solving
         disable_element('controls_pause')
         raise_button('controls_pause')
         disable_element('controls_next')
@@ -859,7 +859,7 @@ def generate_maze() -> None:
     if MAZE_HEIGHT % 2 == 0:
         NODES[(END_NODE.x, END_NODE.y-1)].make_empty_node()
     
-    # Initialize stack
+    # Initialize stack with a randomly picked point on the grid
     stack = []
     stack.append(NODES[pick_maze_generator_starting_point()])
     
@@ -1359,8 +1359,8 @@ class Maze(sg.Graph): # Extend PySimpleGUI Graph Class
                             MAZE_HEIGHT*NODE_SIZE))
         
         # Initialize new nodes
-        for x in range(MAZE_WIDTH):
-            for y in range(MAZE_HEIGHT):
+        for x in range(int(MAZE_WIDTH)):
+            for y in range(int(MAZE_HEIGHT)):
                 init_node = Node(window['maze'], (x,y))
         
         
@@ -1535,15 +1535,15 @@ def create_resize_window():
     col_2 = [  
         [sg.Spin(key="resize_window_maze_width", 
                  initial_value =MAZE_WIDTH, 
-                 values=(list(range(200))), 
+                 values=(list(range(500))), 
                  size=(5,1))], 
         [sg.Spin(key="resize_window_maze_height", 
                  initial_value =MAZE_HEIGHT, 
-                 values=(list(range(200))), 
+                 values=(list(range(500))), 
                  size=(5,1))], 
         [sg.Spin(key="resize_window_node_size", 
                  initial_value =NODE_SIZE, 
-                 values=(list(range(200))), 
+                 values=(list(range(500))), 
                  size=(5,1))],
     ]
     resize_layout = [
